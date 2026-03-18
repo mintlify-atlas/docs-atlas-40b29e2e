@@ -1,0 +1,130 @@
+---
+title: "Sam"
+description: "Enumerate users, groups, and aliases from a remote Security Accounts Manager (SAM) database."
+---
+
+The `Sam` tool connects to the Security Accounts Manager on a remote Windows system and enumerates user accounts, groups, and aliases. It queries general and account-level info for each object returned.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [enumusers](#enumusers) | Enumerate user accounts |
+| enumgroups | Enumerate groups |
+| enumaliases | Enumerate aliases |
+
+<Note>
+For help on any subcommand, run `Sam <subcommand> -h`.
+</Note>
+
+---
+
+## Common options
+
+All `Sam` subcommands share these authentication and connection options:
+
+<AccordionGroup>
+  <Accordion title="Authentication (credentials)">
+    <ParamField path="-UserName (-u)" type="UserPrincipalName">
+      User name to authenticate with (not including the domain).
+    </ParamField>
+    <ParamField path="-UserDomain (-ud)" type="string">
+      Domain of the authenticating user.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password to authenticate with.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="hexadecimal hash">
+      NTLM hash for pass-the-hash authentication.
+    </ParamField>
+    <ParamField path="-Anonymous" type="boolean">
+      Use anonymous login.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication (Kerberos)">
+    <ParamField path="-Kdc (-K)" type="host:port">
+      KDC endpoint. Required to enable Kerberos.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      Path to a TGT file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file.
+    </ParamField>
+    <ParamField path="-AesKey" type="HexString">
+      AES-128 or AES-256 Kerberos key.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection">
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Override network address(es) of the server.
+    </ParamField>
+    <ParamField path="-UseTcp4Only (-4)" type="boolean">
+      Use TCP over IPv4 only.
+    </ParamField>
+    <ParamField path="-UseTcp6Only (-6)" type="boolean">
+      Use TCP over IPv6 only.
+    </ParamField>
+    <ParamField path="-EncryptRpc" type="boolean">
+      Encrypt RPC messages.
+    </ParamField>
+    <ParamField path="-PreferSmb" type="boolean">
+      Connect over a named pipe instead of TCP when supported.
+    </ParamField>
+    <ParamField path="-Socks5" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## enumusers
+
+Enumerates user accounts from the SAM database on a remote system. For each user, `Sam enumusers` queries the general account info and returns details such as the account name, SID, full name, last logon time, and password information.
+
+```bash
+Sam enumusers [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `AccountName`, `Domain`, `AccountType`, `Id`, `Sid`, `FullName`, `AdminComment`, `PasswordLastSet`, `LastLogon`, `BadPasswordCount`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+    <ParamField path="-ContinueOnError" type="boolean" default="true">
+      Continue even if errors occur for individual accounts.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Enumerate all users with default fields
+Sam enumusers LUMON-DC1 -UserName milchick -Password Br3@kr00m!
+
+# Enumerate users with full details
+Sam enumusers LUMON-DC1 -UserName milchick -Password Br3@kr00m! -OutputFields AccountName,Sid,FullName,PasswordLastSet,LastLogon,BadPasswordCount
+
+# Output as JSON
+Sam enumusers LUMON-DC1 -UserName milchick -Password Br3@kr00m! -OutputStyle Json
+```
+
+---
+
+## Related tools
+
+- [Lsa](/tools/lsa) — enumerate LSA policy accounts, manage privileges and access rights
+- [Kerb](/tools/kerb) — request Kerberos tickets for authentication

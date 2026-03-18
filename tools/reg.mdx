@@ -1,0 +1,510 @@
+---
+title: "Reg"
+description: "Interact with the Windows registry of remote systems over RPC — list keys, dump credentials, retrieve security descriptors, and set values."
+---
+
+The `Reg` tool connects to the Windows Remote Registry service over RPC and lets you browse registry keys, save hives, dump the SAM database, retrieve LSA secrets, read the system key, and get or set security descriptors — all without requiring an interactive session on the target.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [list](#list) | List the contents of a registry key |
+| [set](#set) | Set one or more values in a registry key |
+| [save](#save) | Save a registry key hive to a file |
+| [keyinfo](#keyinfo) | Get metadata about a registry key |
+| [syskey](#syskey) | Retrieve the system key (syskey/bootkey) |
+| [dumpsam](#dumpsam) | Dump the SAM database |
+| [dumplsasecrets](#dumplsasecrets) | Dump LSA secrets |
+| [getsd](#getsd) | Get the security descriptor of a registry key |
+| [setsd](#setsd) | Set the security descriptor of a registry key |
+| [getdcomapp](#getdcomapp) | Get information about a DCOM application |
+
+<Note>
+For help on any subcommand, run `Reg <subcommand> -h`.
+</Note>
+
+<Warning>
+The `dumpsam`, `dumplsasecrets`, and `syskey` subcommands require administrative access on the target. Using `-BackupSemantics` allows a Backup Operator to open protected hive keys without requiring `SeDebugPrivilege`.
+</Warning>
+
+---
+
+## list
+
+Lists the subkeys and values of a registry key.
+
+```bash
+Reg list [options] <ServerName> <KeyPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+    <ParamField path="KeyPath" type="string" required>
+      Registry key path, e.g. `HKLM\SOFTWARE\Microsoft` or `HKU`.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="List options">
+    <ParamField path="-IncludeSubkeys" type="boolean" default="true">
+      Include subkey names in the output.
+    </ParamField>
+    <ParamField path="-IncludeValues" type="boolean" default="true">
+      Include value names in the output.
+    </ParamField>
+    <ParamField path="-IncludeData" type="boolean" default="false">
+      Include the data stored in each value.
+    </ParamField>
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open the key using backup semantics (requires `SeBackupPrivilege`).
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output fields">
+    Possible `-OutputFields` values: `Name`, `ItemType`, `ValueType`, `ClassName`, `Value`, `BytesAsHexString`.
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Reg list -UserName marks@LUMON -Kdc 10.66.0.11 -Password She'sAlive!! LUMON-FS1 -BackupSemantics HKU
+```
+
+---
+
+## set
+
+Sets one or more registry values across one or more keys in a single invocation.
+
+```bash
+Reg set [options] <ServerName> [<Items>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+    <ParamField path="Items" type="RegistryItemSpec[]">
+      Key paths and value specifications interleaved on the command line.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Item specification">
+    Keys are specified as `<root>\<key>` or `<root>/<key>`. Values follow the pattern:
+
+    ```
+    <type>[;<encoding>]:[<valuename>]=<data>
+    ```
+
+    | Encoding | Description | Example |
+    |---|---|---|
+    | `C` | UTF-16 with C-style escapes | `hello\n` |
+    | `Cz` | UTF-16 with C-style escapes, null-terminated | `hello\n` |
+    | `Hex` | Hex-encoded bytes | `0123b5` |
+    | `Dword` | Decimal, hex (`0x`), or binary (`0b`) | `42` / `0x2A` |
+    | `DwordBE` | Same as Dword but big-endian | `42` |
+    | `File` | Load data from file as-is | `./data.bin` |
+    | `Sddl` | SDDL string converted to binary security descriptor | |
+    | `Utf16` | UTF-16 string with C escapes | `Test\r\n` |
+    | `Utf16z` | UTF-16 string with C escapes, null-terminated | `Test\r\n` |
+
+    Default encodings per type:
+
+    | Value type | Default encoding |
+    |---|---|
+    | `BINARY` | Hex |
+    | `DWORD` | Dword |
+    | `DWORD_BIG_ENDIAN` | DwordBE |
+    | `EXPAND_SZ` | Utf16z |
+    | `MULTI_SZ` | Utf16 |
+    | `QWORD` | Qword |
+    | `SZ` | Utf16z |
+  </Accordion>
+
+  <Accordion title="Set options">
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open keys using backup semantics.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+<CodeGroup>
+
+```bash Set multiple values in one key
+Reg set LUMON-FS1 HKCU/SOFTWARE/Experiment sz:=DefaultValueData dword:DwordValue=42 binary;sddl:ValueContainingPermissions=O:BAG:BAD:(A;;0x1F;;;AU)
+```
+
+```bash Set values in multiple keys
+Reg set LUMON-FS1 HKCU/SOFTWARE/Experiment/Key1 sz:=This-is-in-key-1 HKCU/SOFTWARE/Experiment/Key2 sz:=DefaultValueData-Key2
+```
+
+```bash Set DCOM application properties
+Reg set LUMON-FS1 HKLM/SOFTWARE/Classes/AppID/{00000000-1234-0000-0000-000000000000} sz:=MyDcomApp binary;sddl:LaunchPermissions=O:BAG:BAD:(A;;0x1F;;;AU) HKLM/SOFTWARE/Classes/CLSID/{00000000-1234-0000-0000-000000000000} sz:=ComponentClass sz:AppId={00000000-1234-0000-0000-000000000000}
+```
+
+</CodeGroup>
+
+---
+
+## save
+
+Saves a registry key and its entire subtree to a file on the remote server's filesystem.
+
+```bash
+Reg save [options] <ServerName> <KeyPath> <FileName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+    <ParamField path="KeyPath" type="string" required>
+      Registry key path to save.
+    </ParamField>
+    <ParamField path="FileName" type="string" required>
+      Destination file path on the remote server.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Save options">
+    <ParamField path="-Format" type="string">
+      Save file format. Possible values: `Original`, `Latest`, `NotCompressed`.
+    </ParamField>
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open the key using backup semantics.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## keyinfo
+
+Retrieves metadata about a registry key: subkey count, value count, last write time, and security descriptor size.
+
+```bash
+Reg keyinfo [options] <ServerName> <KeyPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+    <ParamField path="KeyPath" type="string" required>
+      Registry key path to inspect.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output fields">
+    Possible `-OutputFields` values: `ClassName`, `SubkeyCount`, `MaxSubkeyLength`, `MaxClassLength`, `ValueCount`, `MaxValueNameLength`, `MaxValueDataLength`, `SecurityDescriptorLength`, `LastWriteTime`.
+  </Accordion>
+
+  <Accordion title="Key info options">
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open the key using backup semantics.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## syskey
+
+Retrieves the system key (also called the boot key or syskey) from a remote system. The system key is used to encrypt sensitive data in the SAM and LSA hives.
+
+```bash
+Reg syskey [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Syskey options">
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open registry hives using backup semantics (required when running as Backup Operator).
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output fields">
+    Possible `-OutputFields` values: `Chars`, `Length`.
+  </Accordion>
+</AccordionGroup>
+
+### Example
+
+```bash
+Reg syskey -UserName marks@LUMON -Kdc 10.66.0.11 -Password She'sAlive!! LUMON-FS1 -BackupSemantics
+```
+
+---
+
+## dumpsam
+
+Dumps the Security Account Manager (SAM) database from a remote system, extracting local account names and NTLM password hashes.
+
+```bash
+Reg dumpsam [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Dump options">
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open registry hives using backup semantics. Use this when authenticating as a Backup Operator instead of a full administrator.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output fields">
+    Possible `-OutputFields` values: `AccountName`, `FullName`, `Rid`, `NtlmHashText`.
+  </Accordion>
+</AccordionGroup>
+
+### Example
+
+```bash
+Reg dumpsam -UserName marks@LUMON -Kdc 10.66.0.11 -Password She'sAlive!! LUMON-FS1 -BackupSemantics
+```
+
+<Tip>
+When you do not have `SeDebugPrivilege`, authenticate as a member of the Backup Operators group and pass `-BackupSemantics` to open the SAM hive without requiring debug privileges.
+</Tip>
+
+---
+
+## dumplsasecrets
+
+Dumps LSA secrets from a remote system. LSA secrets can contain cached service account credentials, machine account passwords, and other sensitive data stored by the Local Security Authority.
+
+```bash
+Reg dumplsasecrets [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Dump options">
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open registry hives using backup semantics.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output fields">
+    Possible `-OutputFields` values: `Name`, `CurrentValueHex`, `OldValueHex`, `CurrentUpdateTime`, `OldUpdateTime`, `SecurityDescriptorSddl`.
+  </Accordion>
+</AccordionGroup>
+
+### Example
+
+```bash
+Reg dumplsasecrets -UserName marks@LUMON -Kdc 10.66.0.11 -Password She'sAlive!! LUMON-FS1 -BackupSemantics
+```
+
+---
+
+## getsd
+
+Retrieves the security descriptor of a registry key, including the DACL, owner, group, and optionally the SACL.
+
+```bash
+Reg getsd [options] <ServerName> <KeyPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+    <ParamField path="KeyPath" type="string" required>
+      Registry key path whose security descriptor to retrieve.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Security descriptor options">
+    <ParamField path="-IncludeDacl" type="boolean" default="true">
+      Request the discretionary ACL.
+    </ParamField>
+    <ParamField path="-IncludeOwner" type="boolean" default="true">
+      Request the owner SID.
+    </ParamField>
+    <ParamField path="-IncludeGroup" type="boolean" default="true">
+      Request the group SID.
+    </ParamField>
+    <ParamField path="-IncludeSacl" type="boolean">
+      Request the system ACL (requires `SeSecurityPrivilege`).
+    </ParamField>
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open the key using backup semantics.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+By default, `getsd` requests the DACL, owner, and group. If you specify any of the `-Include*` flags explicitly, only the components you list are requested.
+</Note>
+
+### Examples
+
+<CodeGroup>
+
+```bash Retrieve full security descriptor
+Reg getsd LUMON-FS1 HKCU\Software
+```
+
+```bash Retrieve DACL only
+Reg getsd -IncludeDacl LUMON-FS1 HKCU\Software
+```
+
+```bash Retrieve DACL and owner
+Reg getsd -IncludeDacl -IncludeOwner LUMON-FS1 HKCU\Software
+```
+
+</CodeGroup>
+
+---
+
+## setsd
+
+Sets the security descriptor of a registry key using an SDDL string.
+
+```bash
+Reg setsd [options] -SecurityDescriptor <SecurityDescriptor> <ServerName> <KeyPath> <SecurityDescriptor>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+    <ParamField path="KeyPath" type="string" required>
+      Registry key path to update.
+    </ParamField>
+    <ParamField path="-SecurityDescriptor" type="string" required>
+      SDDL string representing the security descriptor to apply.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Set options">
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open the key using backup semantics.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Example
+
+```bash
+Reg setsd LUMON-FS1 -username marks@LUMON -password She's@live!! -Kdc lumon-dc1 -BackupSemantics HKCU\Software\Microsoft D:AI(A;CIID;0x20019;;;BU)(A;CIID;0xF003F;;;BA)(A;CIID;0xF003F;;;SY)(A;CIIOID;0xF003F;;;CO)
+```
+
+---
+
+## getdcomapp
+
+Reads DCOM application configuration from the registry, including launch and access permissions.
+
+```bash
+Reg getdcomapp [options] -AppId <Guid[]> <ServerName> <AppId>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the RPC server.
+    </ParamField>
+    <ParamField path="-AppId" type="Guid[]" required>
+      One or more AppID GUIDs to retrieve information for.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output fields">
+    Possible `-OutputFields` values: `AppId`, `Title`, `LaunchPermissions`, `AccessPermissions`, `IsDllSurrogate`, `LocalService`, `ServiceParameters`, `RunAs`, `PreferredServerBitness`, `AuthenticationLevel`.
+  </Accordion>
+
+  <Accordion title="Get options">
+    <ParamField path="-BackupSemantics (-B)" type="boolean">
+      Open registry keys using backup semantics.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Common options
+
+All `Reg` subcommands accept these shared RPC and SMB connection options.
+
+<AccordionGroup>
+  <Accordion title="RPC transport">
+    | Option | Description |
+    |---|---|
+    | `-Spnego` | Use SPNEGO for authentication |
+    | `-AuthEpm` | Authenticate EP mapper requests |
+    | `-EncryptEpm` | Encrypt EP mapper requests |
+    | `-EncryptRpc` | Encrypt RPC messages |
+    | `-PreferSmb` | Use named pipes over SMB instead of TCP when available |
+  </Accordion>
+
+  <Accordion title="SMB connection">
+    | Option | Description |
+    |---|---|
+    | `-Dialects` | SMB2 dialects to negotiate: `Smb2_0_2`, `Smb2_1`, `Smb3_0`, `Smb3_0_2`, `Smb3_1_1` |
+    | `-RequireSigning (-signreq)` | Require SMB packet signing |
+    | `-RequireSecureNegotiate` | Require authenticated negotiation |
+    | `-EncryptSmb` | Require an encrypted SMB connection |
+    | `-FollowDfs (-F)` | Follow DFS referrals (default: true) |
+  </Accordion>
+
+  <Accordion title="Authentication">
+    | Option | Description |
+    |---|---|
+    | `-UserName (-u)` | User name (without domain) |
+    | `-UserDomain (-ud)` | User domain |
+    | `-Password (-p)` | Password |
+    | `-NtlmHash` | NTLM hash for pass-the-hash |
+    | `-AesKey` | AES-128 or AES-256 Kerberos key |
+    | `-Tgt` | TGT file path (`.kirbi` or ccache) |
+    | `-Kdc (-K)` | KDC endpoint |
+  </Accordion>
+
+  <Accordion title="Connection">
+    | Option | Description |
+    |---|---|
+    | `-HostAddress (-ha)` | Override network address |
+    | `-UseTcp6Only (-6)` | Force IPv6 |
+    | `-UseTcp4Only (-4)` | Force IPv4 |
+    | `-Socks5` | SOCKS5 proxy endpoint |
+  </Accordion>
+</AccordionGroup>
+
+## Related tools
+
+<CardGroup cols={2}>
+  <Card title="Sddl" href="/tools/sddl" icon="shield">
+    Parse and describe security descriptors returned by `getsd`.
+  </Card>
+  <Card title="Dcom" href="/tools/dcom" icon="server">
+    Invoke methods on DCOM objects whose configuration you read with `getdcomapp`.
+  </Card>
+</CardGroup>

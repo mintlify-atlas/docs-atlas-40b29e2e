@@ -1,0 +1,111 @@
+---
+title: "Code samples"
+description: "An overview of the sample projects included in the Titanis repository, demonstrating real-world usage across SMB, RPC, DCOM, and WMI."
+---
+
+The `samples/` directory in the Titanis repository contains fully working programs that demonstrate how to use the Titanis libraries. Each sample targets a specific set of protocols and techniques.
+
+## SMB samples
+
+<CardGroup cols={2}>
+  <Card title="Smb2GetSample" icon="file-arrow-down">
+    Retrieves a file from a remote share over SMB2 using NTLM authentication via SPNEGO. Demonstrates `Smb2Client`, `ClientCredentialDictionary`, `DictionaryNameResolver`, and `PlatformSocketService`.
+
+    **Protocols:** SMB2
+
+    **Location:** `samples/smb2/Smb2GetSample/`
+  </Card>
+</CardGroup>
+
+## MSRPC samples
+
+<CardGroup cols={2}>
+  <Card title="EnumUsers" icon="users">
+    Enumerates user accounts on a remote Windows system using the SAM RPC interface over NTLM-authenticated SMB.
+
+    **Protocols:** NTLM, RPC, SAM service
+
+    **Location:** `samples/msrpc/EnumUsers/`
+  </Card>
+  <Card title="WeakServices" icon="shield-halved">
+    Enumerates Windows services and checks each service's DACL for overly permissive entries. Uses LSA to translate SIDs to account names.
+
+    **Protocols:** NTLM, RPC, SMB, LSA, SCM
+
+    **Location:** `samples/msrpc/WeakServices/`
+  </Card>
+</CardGroup>
+
+## DCOM samples
+
+<CardGroup cols={2}>
+  <Card title="MmcExec" icon="display">
+    Executes a lateral movement technique using MMC over DCOM with OLE Automation and dynamic `IDispatch` invocation.
+
+    **Protocols:** RPC, NTLM, DCOM, OLE Automation
+
+    **Location:** `samples/dcom/MmcExec/`
+  </Card>
+  <Card title="ShellDcomExec" icon="terminal">
+    Executes a lateral movement technique using the Windows Shell over DCOM.
+
+    **Protocols:** RPC, NTLM, DCOM, OLE Automation
+
+    **Location:** `samples/dcom/ShellDcomExec/`
+  </Card>
+  <Card title="WordMacroExec" icon="file-word">
+    Adds a VBA macro to a Word document over DCOM using OLE Automation.
+
+    **Protocols:** RPC, NTLM, DCOM, OLE Automation
+
+    **Location:** `samples/dcom/WordMacroExec/`
+  </Card>
+</CardGroup>
+
+## WMI samples
+
+<CardGroup cols={2}>
+  <Card title="WmiExec" icon="play">
+    Executes a process on a remote system by invoking `Win32_Process.Create` via WMI over DCOM.
+
+    **Protocols:** RPC, DCOM, WMI, dynamic dispatch
+
+    **Location:** `samples/wmi/WmiExec/`
+  </Card>
+  <Card title="WmiRegistry" icon="database">
+    Reads and writes Windows registry keys on a remote system using the WMI `StdRegProv` provider.
+
+    **Protocols:** RPC, DCOM, WMI, dynamic dispatch
+
+    **Location:** `samples/wmi/WmiRegistry/`
+  </Card>
+</CardGroup>
+
+## CLI and workflow samples
+
+<CardGroup cols={2}>
+  <Card title="CommandSample" icon="square-terminal">
+    Demonstrates the full `Titanis.Cli` parameter framework: positional and named parameters, switch flags, array parameters, custom type converters, parameter validation, and parameter groups.
+
+    **Location:** `samples/CommandSample/`
+  </Card>
+  <Card title="WorkflowSample" icon="list-check">
+    Demonstrates `Titanis.Cli.Workflow` for step-based task execution including error continuation and rollback.
+
+    **Location:** `samples/WorkflowSample/`
+  </Card>
+</CardGroup>
+
+## PDU struct sample
+
+<CardGroup cols={1}>
+  <Card title="PduStructSample" icon="code">
+    Shows how to use every attribute supported by the PDU source generator: `[PduStruct]`, `[PduField]`, `[PduIgnore]`, `[PduByteOrder]`, `[PduString]`, `[PduArraySize]`, `[PduConditional]`, `[PduPosition]`, and custom read/write methods.
+
+    **Location:** `samples/PduStructSample/`
+  </Card>
+</CardGroup>
+
+<Tip>
+All samples use `<ProjectReference>` elements pointing directly at the library source rather than NuGet packages. When writing your own tools against published NuGet packages, replace the `<ProjectReference>` elements with `<PackageReference>` elements as shown in the [developer guide overview](/dev-guide/index).
+</Tip>

@@ -1,0 +1,169 @@
+---
+title: "Kerberos"
+description: "Use the Kerb command to request initial tickets, service tickets, and renewal tickets, extract hashes for Kerberoasting, and manage ticket files."
+---
+
+Most authentication scenarios are handled transparently by Titanis commands. The `Kerb` command gives you direct, fine-grained control over interactions with the KDC — requesting and renewing tickets, managing ticket files, and extracting ticket hashes for offline cracking.
+
+## Requesting an initial ticket
+
+The Kerberos AS exchange proves your identity to the Authentication Server and returns a ticket-granting ticket (TGT). Use `Kerb asreq` to perform this exchange.
+
+<Tabs>
+  <Tab title="Password">
+    ```bash
+    Kerb asreq milchick@LUMON.IND 10.66.0.11 \
+      -Password Br3@kr00m! \
+      -OutputFileName milchick-tgt.kirbi
+    ```
+  </Tab>
+  <Tab title="NTLM hash">
+    ```bash
+    Kerb asreq milchick@LUMON.IND 10.66.0.11 \
+      -NtlmHash aad3b435b51404eeaad3b435b51404ee \
+      -OutputFileName milchick-tgt.kirbi
+    ```
+  </Tab>
+  <Tab title="AES key">
+    ```bash
+    # AES128 and AES256 are distinguished by key length
+    Kerb asreq milchick@LUMON.IND 10.66.0.11 \
+      -AesKey <hex-encoded key> \
+      -OutputFileName milchick-tgt.kirbi
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+If `KRB5CCNAME` is set, `-OutputFileName` is optional — `Kerb` appends the ticket to the ticket cache automatically.
+</Note>
+
+### Default AS-REQ options
+
+By default, `Kerb asreq` sends a request with:
+
+- Target SPN: `krbtgt/<realm>`
+- KDC options: Forwardable, Renewable, Canonicalize, RenewableOk
+- End time and renewable-till time: 10 hours from now
+- All encryption types supported by the provided credential
+
+### Requesting a non-default SPN
+
+Use `-Spn` to target a different service, such as `kadmin/changepw`:
+
+```bash
+Kerb asreq milchick@LUMON.IND 10.66.0.11 -Password Br3@kr00m! -Spn kadmin/changepw
+```
+
+You can also specify a computer account:
+
+```bash
+Kerb asreq milchick@LUMON.IND 10.66.0.11 -Password Br3@kr00m! -Spn LUMON-DC1$
+```
+
+## Requesting a service ticket
+
+Once you have a TGT, use `Kerb tgsreq` to request a service ticket for a specific SPN:
+
+```bash
+Kerb tgsreq -Tgt milchick-tgt.kirbi -Kdc 10.66.0.11 cifs/LUMON-FS1
+```
+
+You can specify a computer account instead of a full SPN:
+
+```bash
+Kerb tgsreq -Tgt milchick-tgt.kirbi -Kdc 10.66.0.11 LUMON-FS1$
+```
+
+Request multiple service tickets in a single command by listing multiple SPNs:
+
+```bash
+Kerb tgsreq -Tgt milchick-tgt.kirbi -Kdc 10.66.0.11 \
+  cifs/LUMON-FS1 host/LUMON-FS1 RestrictedKrbHost/LUMON-FS1 LUMON-FS1$
+```
+
+## Renewing a ticket
+
+Use `Kerb renew` to renew tickets before they expire.
+
+Renew all tickets in a file:
+
+```bash
+Kerb renew -Ticket milchick-tgt.kirbi 10.66.0.11 -OutputFileName milchick-tgt-renewed.kirbi
+```
+
+Renew specific tickets from a cache by SPN:
+
+```bash
+Kerb renew -TicketCache milchick.ccache 10.66.0.11 \
+  -OutputFileName milchick-renewed.ccache \
+  -TargetSpn cifs/LUMON-FS1, host/LUMON-FS1
+```
+
+## Kerberoasting support
+
+Titanis does not perform Kerberoasting itself, but it exposes the ticket hash and hashcat method number as output fields. These fields are hidden by default; request them with `-OutputFields`:
+
+| Field | Description |
+|---|---|
+| `TgsrepHashcatMethod` | Hash type number for the hashcat `-m` option |
+| `TicketHash` | Ticket hash ready to paste into a hash file |
+
+### Extract hashes from an existing ticket file
+
+```bash
+Kerb select -From milchick.kirbi \
+  -OutputFields UserName, TargetSpn, TgsrepHashcatMethod, TicketHash \
+  -OutputStyle List
+```
+
+### Request tickets with a weak encryption type
+
+When requesting tickets intended for cracking, use `-EncTypes` to request RC4:
+
+```bash
+Kerb tgsreq -Tgt milchick-tgt.kirbi -Kdc 10.66.0.11 \
+  -EncTypes rc4-hmac \
+  MSSQLSvc/LUMON-DB1.lumon.ind:1433
+```
+
+## Managing ticket files
+
+Use `Kerb select` to display, filter, convert, split, and combine ticket files. Both `.kirbi` and `.ccache` formats are supported as both input and output.
+
+### Selecting source tickets
+
+Specify one or more source files with `-From`:
+
+```bash
+Kerb select -From milchick.kirbi
+Kerb select -From milchick.kirbi, svc-mssql.kirbi
+```
+
+If `-From` is not specified and `KRB5CCNAME` is set, Titanis uses the ticket cache as the source.
+
+### Filtering tickets
+
+| Option | Description |
+|---|---|
+| `-UserName` | Select only tickets for a specific user |
+| `-TargetSpn` | Select only tickets for a specific SPN |
+| `-SeqNbr` | Select by sequence number or range within the file |
+| `-Invert` | Invert the filter — select tickets that do **not** match |
+
+### Writing output
+
+Specify an output file with `-OutputFileName`. The format is determined by the extension of a new file: `.ccache` produces a ccache file, anything else produces a kirbi file.
+
+```bash
+# Convert kirbi to ccache
+Kerb select -From milchick.kirbi -OutputFileName milchick.ccache
+```
+
+To append tickets to an existing file rather than replacing it, add `-Append`. The existing file's format is preserved regardless of the extension.
+
+```bash
+# Combine two kirbi files into one
+Kerb select -From svc-mssql.kirbi, host.kirbi -OutputFileName combined.kirbi
+Kerb select -From extra.kirbi -OutputFileName combined.kirbi -Append
+```

@@ -1,0 +1,312 @@
+---
+title: "Scm"
+description: "Interact with the Windows Service Control Manager: query, create, start, stop, and delete services on remote systems."
+---
+
+The `Scm` tool connects to the Service Control Manager on a remote Windows system and lets you query service status, inspect service triggers, create new services, start and stop services, and delete services.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [query](#query) | Query the status of services |
+| [qtriggers](#qtriggers) | Query the triggers configured for a service |
+| [create](#create) | Create and optionally start a new service |
+| [start](#start) | Start a service |
+| [stop](#stop) | Stop a service |
+| [delete](#delete) | Delete a service |
+
+<Note>
+For help on any subcommand, run `Scm <subcommand> -h`.
+</Note>
+
+---
+
+## Common options
+
+All `Scm` subcommands share these authentication and connection options:
+
+<AccordionGroup>
+  <Accordion title="Authentication (credentials)">
+    <ParamField path="-UserName (-u)" type="UserPrincipalName">
+      User name to authenticate with (not including the domain).
+    </ParamField>
+    <ParamField path="-UserDomain (-ud)" type="string">
+      Domain of the authenticating user.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password to authenticate with.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="hexadecimal hash">
+      NTLM hash for pass-the-hash authentication.
+    </ParamField>
+    <ParamField path="-Anonymous" type="boolean">
+      Use anonymous login.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication (Kerberos)">
+    <ParamField path="-Kdc (-K)" type="host:port">
+      KDC endpoint. Required to enable Kerberos.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      Path to a TGT file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file.
+    </ParamField>
+    <ParamField path="-AesKey" type="HexString">
+      AES-128 or AES-256 Kerberos key.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection">
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Override network address(es) of the server.
+    </ParamField>
+    <ParamField path="-UseTcp4Only (-4)" type="boolean">
+      Use TCP over IPv4 only.
+    </ParamField>
+    <ParamField path="-UseTcp6Only (-6)" type="boolean">
+      Use TCP over IPv6 only.
+    </ParamField>
+    <ParamField path="-EncryptRpc" type="boolean">
+      Encrypt RPC messages.
+    </ParamField>
+    <ParamField path="-PreferSmb" type="boolean">
+      Connect over a named pipe instead of TCP when supported.
+    </ParamField>
+    <ParamField path="-Socks5" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## query
+
+Queries the status of services on a remote system. Returns all services by default; filter by type or state to narrow results.
+
+```bash
+Scm query [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Types" type="ServiceTypes[]">
+      Filter by service type. Possible values: `None`, `KernelDriver`, `FileSystemDriver`, `OwnProcess`, `SharedProcess`, `All`.
+    </ParamField>
+    <ParamField path="-States" type="ServiceStates[]">
+      Filter by service state. Possible values: `None`, `Active`, `Inactive`, `All`.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `ServiceName`, `DisplayName`, `ServiceType`, `State`, `Win32ExitCode`, `SpecificExitCode`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Query all services
+Scm query LUMON-DC1 -UserName milchick -Password Br3@kr00m!
+
+# Query only running services
+Scm query LUMON-DC1 -UserName milchick -Password Br3@kr00m! -States Active
+
+# Query only kernel drivers
+Scm query LUMON-DC1 -UserName milchick -Password Br3@kr00m! -Types KernelDriver
+```
+
+---
+
+## qtriggers
+
+Queries the triggers configured to automatically start or stop a service.
+
+```bash
+Scm qtriggers [options] <ServerName> <ServiceName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="ServiceName" type="string[]" required>
+      Name(s) of services to query. Use `*` to query all services.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `ServiceName`, `TriggerType`, `TriggerTypeDescription`, `Action`, `Data0`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## create
+
+Creates a new service on a remote system and optionally starts it immediately. By default the service runs as `LocalSystem` and starts on demand (`Demand` start type).
+
+```bash
+Scm create [options] <ServerName> <ServiceName> [<BinPath>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="ServiceName" type="string" required>
+      Internal name of the service to create.
+    </ParamField>
+    <ParamField path="BinPath" type="string">
+      Command line for the service executable.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-DisplayName" type="string">
+      Human-readable display name for the service.
+    </ParamField>
+    <ParamField path="-ServiceType" type="ServiceTypes" default="OwnProcess">
+      Type of service. Possible values: `None`, `KernelDriver`, `FileSystemDriver`, `OwnProcess`, `SharedProcess`, `All`.
+    </ParamField>
+    <ParamField path="-StartType" type="ServiceStartType" default="Demand">
+      Start type. Possible values: `Boot`, `System`, `Auto`, `Demand`, `Disabled`.
+    </ParamField>
+    <ParamField path="-ErrorControl" type="ServiceErrorControl" default="Normal">
+      Error control. Possible values: `Ignore`, `Normal`, `Severe`, `Critical`.
+    </ParamField>
+    <ParamField path="-StartName" type="string" default="LocalSystem">
+      Account to run the service as.
+    </ParamField>
+    <ParamField path="-StartPassword" type="string">
+      Password of the service account.
+    </ParamField>
+    <ParamField path="-Dependencies (-deps)" type="string[]">
+      List of services this service depends on.
+    </ParamField>
+    <ParamField path="-LoadOrderGroup" type="string">
+      Load order group.
+    </ParamField>
+    <ParamField path="-Start" type="boolean">
+      Start the service immediately after creating it.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Create and start a service
+Scm create LUMON-DC1 -UserName milchick -Password Br3@kr00m! -EncryptRpc myservice -DisplayName "My Service" C:\\windows\\system32\\cmd.exe -Start
+```
+
+---
+
+## start
+
+Starts a service on a remote system. Optionally pass arguments to the service.
+
+```bash
+Scm start [options] <ServerName> <ServiceName> [<ServiceArgs>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="ServiceName" type="string" required>
+      Name of the service to start.
+    </ParamField>
+    <ParamField path="ServiceArgs" type="string[]">
+      Optional arguments to pass to the service.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Start a service
+Scm start LUMON-DC1 -UserName milchick -Password Br3@kr00m! -EncryptRpc myservice
+
+# Start a service with arguments
+Scm start LUMON-DC1 -UserName milchick -Password Br3@kr00m! -EncryptRpc myservice arg1 arg2 arg3
+```
+
+---
+
+## stop
+
+Stops a running service on a remote system.
+
+```bash
+Scm stop [options] <ServerName> <ServiceName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="ServiceName" type="string" required>
+      Name of the service to stop.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Scm stop LUMON-DC1 -UserName milchick -Password Br3@kr00m! -EncryptRpc myservice
+```
+
+---
+
+## delete
+
+Deletes a service from a remote system.
+
+```bash
+Scm delete [options] <ServerName> <ServiceName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="ServiceName" type="string" required>
+      Name of the service to delete.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Scm delete LUMON-DC1 -UserName milchick -Password Br3@kr00m! -EncryptRpc myservice
+```
+
+---
+
+## Related tools
+
+- [Wmi](/tools/wmi) — execute commands and invoke methods remotely via WMI
+- [Epm](/tools/epm) — enumerate dynamic RPC endpoints

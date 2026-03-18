@@ -1,0 +1,669 @@
+---
+title: "Kerb"
+description: "Request and manage Kerberos tickets, change passwords, generate protocol keys, and inspect ticket files."
+---
+
+The `Kerb` tool provides Kerberos authentication operations: requesting TGTs and service tickets, changing and setting passwords, renewing tickets, generating string-to-key protocol keys, and inspecting or converting ticket files.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [asreq](#asreq) | Request a TGT from the KDC |
+| [getasinfo](#getasinfo) | Get server time and encryption types for a user account |
+| [tgsreq](#tgsreq) | Request a service ticket from the KDC |
+| [renew](#renew) | Renew a ticket |
+| [select](#select) | Select and display tickets from a file |
+| [changepw](#changepw) | Change an account password |
+| [setpw](#setpw) | Set the password of another account |
+| [s2k](#s2k) | Generate a protocol key from a string such as a password |
+
+<Note>
+For help on any subcommand, run `Kerb <subcommand> -h`.
+</Note>
+
+<Note>
+If the `KRB5CCNAME` environment variable is set, commands that accept `-TicketCache` will use it automatically when no explicit ticket source is provided.
+</Note>
+
+---
+
+## asreq
+
+Sends an AS-REQ to the KDC to request a ticket-granting ticket (TGT).
+
+You must supply credentials — a password, NTLM hash, AES key, or DES key — used for pre-authentication and to decrypt the response. You may also use PKINIT with a certificate and key file. The encryption type of the response depends on which credential you provide. Use `-EncTypes` to restrict which encryption types the KDC can use.
+
+If you don't specify any ticket options, `Kerb asreq` uses defaults: a ticket expiring 10 hours from now with the `Canonicalize`, `RenewableOk`, `Renewable`, and `Forwardable` options. Specifying any option disables these defaults.
+
+```bash
+Kerb asreq [options] <UserName> <Kdc>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UserName" type="UserPrincipalName" required>
+      Name of the user (no domain). Use the format `user@REALM` to include the realm.
+    </ParamField>
+    <ParamField path="Kdc" type="EndPoint" required>
+      Host name or address of the KDC.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Kerberos options">
+    <ParamField path="-EncTypes" type="EType[]">
+      Encryption types to request in the response. Possible values: `DesCbcMd5`, `DesCbcCrc`, `Rc4Hmac`, `Rc4HmacExp`, `Aes128CtsHmacSha1_96`, `Aes256CtsHmacSha1_96`.
+    </ParamField>
+    <ParamField path="-Password" type="string">
+      Password for pre-authentication.
+    </ParamField>
+    <ParamField path="-NtlmHash (-N)" type="HexString">
+      NTLM hash (hex-encoded, no colons). Specify only the NTLM portion.
+    </ParamField>
+    <ParamField path="-AesKey" type="HexString">
+      AES-128 or AES-256 key (hex-encoded).
+    </ParamField>
+    <ParamField path="-DesKey" type="HexString">
+      DES key (hex-encoded).
+    </ParamField>
+    <ParamField path="-Realm" type="string">
+      Name of the realm (domain).
+    </ParamField>
+    <ParamField path="-Workstation (-W)" type="string">
+      Name of the client workstation.
+    </ParamField>
+    <ParamField path="-Forwardable (-F)" type="boolean">
+      Request a forwardable ticket.
+    </ParamField>
+    <ParamField path="-Renewable" type="boolean">
+      Request a renewable ticket.
+    </ParamField>
+    <ParamField path="-RenewTill" type="DateTime">
+      Request a ticket renewable until this time (implies `-Renewable`).
+    </ParamField>
+    <ParamField path="-EndTime" type="DateTime">
+      Requested ticket expiry time.
+    </ParamField>
+    <ParamField path="-Postdate" type="DateTime">
+      Request a post-dated ticket with this start date.
+    </ParamField>
+    <ParamField path="-RenewableOk" type="boolean">
+      Accept a renewable ticket if the requested end time exceeds the KDC limit.
+    </ParamField>
+    <ParamField path="-UserCert" type="string">
+      Path to the user certificate file (for PKINIT).
+    </ParamField>
+    <ParamField path="-UserKey" type="string">
+      Path to the user key file (for PKINIT).
+    </ParamField>
+    <ParamField path="-UserKeyPassword" type="string">
+      Password to decrypt the user key file (for PKINIT).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Name of the ticket cache file to write the TGT to.
+    </ParamField>
+    <ParamField path="-Target" type="SecurityPrincipalName[]">
+      SPNs to request tickets for.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output">
+    <ParamField path="-OutputFileName" type="string">
+      File to write the ticket to.
+    </ParamField>
+    <ParamField path="-Overwrite" type="boolean">
+      Overwrite the output file if it exists.
+    </ParamField>
+    <ParamField path="-Append" type="boolean">
+      Append to the output file if it exists.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+    <ParamField path="-TicketComment" type="string">
+      Comment to associate with the ticket.
+    </ParamField>
+    <ParamField path="-Verbose (-V)" type="boolean">
+      Print verbose messages.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection">
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Network address(es) of the server.
+    </ParamField>
+    <ParamField path="-UseTcp4Only (-4)" type="boolean">
+      Use TCP over IPv4 only.
+    </ParamField>
+    <ParamField path="-UseTcp6Only (-6)" type="boolean">
+      Use TCP over IPv6 only.
+    </ParamField>
+    <ParamField path="-Socks5 (-S)" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Request a TGT with a password
+Kerb asreq -Realm LUMON -Password Br3@kr00m! -OutputFileName milchick-tgt.kirbi -Overwrite -v milchick 10.66.0.11
+
+# Request a TGT using only RC4-HMAC
+Kerb asreq -Realm LUMON -Password Br3@kr00m! -EncTypes Rc4Hmac -OutputFileName milchick-tgt.kirbi -Overwrite -v milchick 10.66.0.11
+
+# Request a TGT with an AES-256 key
+Kerb asreq -Realm LUMON -AesKey 76332deee4296dcb20200888630755268e605c8576e50ff38db2d8b92351f4e4 -OutputFileName milchick-tgt.kirbi -Overwrite -v milchick 10.66.0.11
+
+# Request a TGT with an NTLM hash
+Kerb asreq -NtlmHash B406A01772D0AD225D7B1C67DD81496F -Realm LUMON -OutputFileName milchick-tgt.kirbi -Overwrite -v milchick 10.66.0.11
+```
+
+---
+
+## getasinfo
+
+Sends an AS-REQ without credentials and inspects the KDC error response. Typically the KDC responds with `KDC_ERR_PREAUTH_REQUIRED` and includes its current time and the valid encryption types and salts for the account.
+
+Use this command to:
+- Verify that a user name exists in a domain
+- Determine which encryption types an account supports
+- Retrieve the correct salt before generating an AES key with `Kerb s2k`
+- Check whether an account requires pre-authentication (required for AS-REP roasting)
+
+If the account does not require pre-authentication, the KDC returns a TGT directly. In that case, use `Kerb asreq` to capture and analyze the ticket.
+
+```bash
+Kerb getasinfo [options] <UserName> <Kdc>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UserName" type="UserPrincipalName" required>
+      Name of the user. Use `user@REALM` to specify the realm.
+    </ParamField>
+    <ParamField path="Kdc" type="string" required>
+      Host name or address of the KDC.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Realm (-R)" type="string">
+      Name of the realm (domain).
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Possible values: `EType`, `SaltText`, `SaltHex`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Network address(es) of the server.
+    </ParamField>
+    <ParamField path="-Socks5 (-S)" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Get encryption types and salt for a user
+Kerb getasinfo milchick@LUMON 10.66.0.11
+```
+
+---
+
+## tgsreq
+
+Sends a TGS-REQ to the KDC to request a service ticket. You may specify the target as a service principal name (`<class>/<instance>`) or as the account name itself (the `$` is optional for machine accounts — `LUMON-FS1`, `LUMON-FS1$`, and `host/LUMON-FS1` all work).
+
+Service tickets retrieved with RC4-HMAC encryption produce Kerberoastable hashes. Use `-OutputFields TgsrepHashcatMethod, TicketHash` to extract the hash for offline cracking.
+
+```bash
+Kerb tgsreq [options] <Kdc> <Target>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="Kdc" type="EndPoint" required>
+      Host name or address of the KDC.
+    </ParamField>
+    <ParamField path="Target" type="SecurityPrincipalName[]" required>
+      SPN(s) to request tickets for. Accepts multiple values.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Kerberos options">
+    <ParamField path="-Tgt" type="string">
+      Path to a TGT file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file to use as the TGT source.
+    </ParamField>
+    <ParamField path="-EncTypes" type="EType[]">
+      Encryption types to request. Possible values: `Rc4Hmac`, `Aes128CtsHmacSha1_96`, `Aes256CtsHmacSha1_96`, and others.
+    </ParamField>
+    <ParamField path="-S4UserName" type="UserPrincipalName">
+      User to impersonate with S4U2self.
+    </ParamField>
+    <ParamField path="-S4ProxyService" type="SecurityPrincipalName">
+      Service account to proxy through with S4U2proxy.
+    </ParamField>
+    <ParamField path="-U2uTicket" type="string">
+      Path to a U2U ticket file.
+    </ParamField>
+    <ParamField path="-AsrepKey" type="HexString">
+      Encryption key from the AS-REP, used to decrypt the NTLM hash from authorization data.
+    </ParamField>
+    <ParamField path="-ServicePassword" type="string">
+      Password for the service account (for decrypting authorization data).
+    </ParamField>
+    <ParamField path="-ServiceSalt" type="string">
+      Salt for the service account (for decrypting authorization data).
+    </ParamField>
+    <ParamField path="-Forwardable" type="boolean">
+      Request a forwardable ticket.
+    </ParamField>
+    <ParamField path="-Forwarded" type="boolean">
+      Request a forwarded ticket.
+    </ParamField>
+    <ParamField path="-Renewable" type="boolean">
+      Request a renewable ticket.
+    </ParamField>
+    <ParamField path="-EndTime" type="DateTime">
+      Requested ticket expiry time.
+    </ParamField>
+    <ParamField path="-Realm" type="string">
+      Realm of the KDC.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output">
+    <ParamField path="-OutputFileName" type="string">
+      File to write the ticket to.
+    </ParamField>
+    <ParamField path="-Overwrite" type="boolean">
+      Overwrite the output file if it exists.
+    </ParamField>
+    <ParamField path="-Append" type="boolean">
+      Append to the output file if it exists.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Include `TgsrepHashcatMethod` and `TicketHash` to extract Kerberoastable hashes.
+    </ParamField>
+    <ParamField path="-TicketComment" type="string">
+      Comment to associate with the ticket.
+    </ParamField>
+    <ParamField path="-Socks5" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Request a CIFS ticket for a file server
+Kerb tgsreq -Tgt milchick-tgt.kirbi -OutputFile milchick-LUMON-FS1.kirbi 10.66.0.11 cifs/LUMON-FS1
+
+# Request tickets for both CIFS and HOST
+Kerb tgsreq -Tgt milchick-tgt.kirbi -OutputFile milchick-LUMON-FS1.kirbi 10.66.0.11 cifs/LUMON-FS1 HOST/LUMON-FS1
+
+# Kerberoasting: request RC4-HMAC ticket to get a crackable hash
+Kerb tgsreq -Tgt milchick-tgt.kirbi -EncTypes Rc4Hmac 10.66.0.11 svc_backup -OutputFields TgsrepHashcatMethod,TicketHash
+
+# Request a U2U ticket and extract the NTLM hash
+Kerb tgsreq -Tgt allentown-tgt.kirbi -U2u allentown-tgt.kirbi -AsrepKey 82d4ab5873cbfda126e00c28edb5bd97b6451aa06a291d85173e6fc4ed4aacee -OutputFileName allentown-u2u.kirbi -Overwrite -v 10.66.0.11 host/allentown
+```
+
+---
+
+## renew
+
+Sends a renewal request to the TGS for the specified ticket. The ticket must have been issued as renewable.
+
+You may supply the source ticket via `-Ticket` (a file) or `-TicketCache`. When using `-TicketCache`, you must specify `-TargetSpn` to identify which ticket to renew. When using `-Ticket`, `-TargetSpn` is optional and filters which tickets to renew.
+
+```bash
+Kerb renew [options] <Kdc> [<TargetSpn>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="Kdc" type="EndPoint" required>
+      Host name or address of the KDC.
+    </ParamField>
+    <ParamField path="TargetSpn" type="SecurityPrincipalName[]">
+      SPNs to renew tickets for. Optional when using `-Ticket`; required when using `-TicketCache`.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Ticket" type="string">
+      Path to a ticket file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file.
+    </ParamField>
+    <ParamField path="-EndTime (-E)" type="DateTime">
+      New expiry time for the renewed ticket.
+    </ParamField>
+    <ParamField path="-Forwardable (-F)" type="boolean">
+      Request a forwardable ticket.
+    </ParamField>
+    <ParamField path="-Renewable" type="boolean">
+      Request a renewable ticket.
+    </ParamField>
+    <ParamField path="-RenewTill" type="DateTime">
+      Request a ticket renewable until this time.
+    </ParamField>
+    <ParamField path="-OutputFileName" type="string">
+      File to write the renewed ticket to.
+    </ParamField>
+    <ParamField path="-Overwrite" type="boolean">
+      Overwrite the output file if it exists.
+    </ParamField>
+    <ParamField path="-Append (-A)" type="boolean">
+      Append to the output file if it exists.
+    </ParamField>
+    <ParamField path="-Socks5 (-S)" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Renew all tickets in a file
+Kerb renew -Ticket milchick-lumon-fs1.kirbi -OutputFileName milchick-lumon-fs1.kirbi -Overwrite 10.66.0.11
+
+# Renew specific tickets from a cache
+Kerb renew -TicketCache milchick.ccache 10.66.0.11 -TargetSpn host/lumon-fs1 cifs/lumon-fs1
+```
+
+---
+
+## select
+
+Reads tickets from one or more `.kirbi` or `.ccache` files, optionally filters them, and optionally writes the results to a new file. Use this command to inspect, convert, combine, or filter ticket files.
+
+If the `KRB5CCNAME` environment variable is set and you don't specify `-From`, `Kerb select` reads from the ticket cache it points to. Specifying `-From` explicitly bypasses `KRB5CCNAME`.
+
+```bash
+Kerb select [options] [<From>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="From" type="string[]">
+      File names or glob patterns to read tickets from. Accepts multiple values and wildcards.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Ticket source">
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file. Ignored if `-From` is specified.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output">
+    <ParamField path="-Into" type="string">
+      Target file to write selected tickets to.
+    </ParamField>
+    <ParamField path="-Overwrite" type="boolean">
+      Overwrite the target file if it exists.
+    </ParamField>
+    <ParamField path="-PrintAuthData (-P)" type="boolean">
+      Print ticket authorization data (if decrypted).
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `SourceFileName`, `SeqNbr`, `Comment`, `ClientName`, `ClientRealm`, `TicketRealm`, `TargetSpn`, `ServiceClass`, `ServiceInstance`, `ServiceRealm`, `KdcOptions`, `EndTime`, `StartTime`, `RenewTill`, `AsrepKeyText`, `TicketKeyText`, `SessionEType`, `SessionKeyText`, `TicketEType`, `TgsrepHashcatMethod`, `TicketHash`, `IsCurrent`, `SecurityGroups`, `NtlmHashText`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Ticket filter">
+    <ParamField path="-Current" type="boolean">
+      Select only currently-valid tickets.
+    </ParamField>
+    <ParamField path="-MatchingSpn" type="string[]">
+      Regex patterns to match ticket SPNs.
+    </ParamField>
+    <ParamField path="-MatchingClientName" type="string[]">
+      Regex patterns to match the client name.
+    </ParamField>
+    <ParamField path="-MatchingTicketEType" type="EType[]">
+      Filter for ticket encryption type.
+    </ParamField>
+    <ParamField path="-MatchingSessionEType" type="EType[]">
+      Filter for session key encryption type.
+    </ParamField>
+    <ParamField path="-SeqNbr" type="NumberOrRange[]">
+      Sequence number or range (e.g. `1`, `3-5`, `7-*`).
+    </ParamField>
+    <ParamField path="-InvertMatch" type="boolean">
+      Invert the filter — select tickets that don't match.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Ticket decryption">
+    <ParamField path="-TicketKey" type="HexString[]">
+      Key to decrypt the ticket.
+    </ParamField>
+    <ParamField path="-ServicePassword" type="string[]">
+      Password for the service account.
+    </ParamField>
+    <ParamField path="-ServiceSalt" type="string[]">
+      Salt for the service account.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Print all tickets matching a glob pattern
+Kerb select -From milchick*.kirbi
+
+# Combine multiple ticket files into one
+Kerb select -From milchick*.kirbi -Into all-milchick.kirbi
+
+# Show only currently valid tickets
+Kerb select -From milchick*.kirbi -Current
+
+# Show only TGTs
+Kerb select -From milchick*.kirbi -MatchingSpn 'krbtgt/.*'
+
+# Show only CIFS tickets
+Kerb select -From milchick*.kirbi -MatchingSpn 'cifs/.*'
+
+# Show tickets targeting a specific host
+Kerb select -From milchick*.kirbi -MatchingSpn '.*/LUMON-FS1'
+
+# Show tickets by sequence number
+Kerb select -From milchick*.kirbi -SeqNbr 1,3-5,7-*
+```
+
+---
+
+## changepw
+
+Changes the password of the authenticating user using the Kerberos Change Password protocol. This command can only change the password of the account being used to authenticate — not another account's password. To set another account's password, use [`setpw`](#setpw).
+
+This protocol requires an initial ticket from an AS-REQ/AS-REP exchange, so credentials are required and a pre-existing ticket cannot be passed as input.
+
+```bash
+Kerb changepw [options] <UserName> <Kdc> <NewPassword>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UserName" type="UserPrincipalName" required>
+      Name of the user (use `user@REALM` format).
+    </ParamField>
+    <ParamField path="Kdc" type="EndPoint" required>
+      Host name or address of the KDC.
+    </ParamField>
+    <ParamField path="NewPassword" type="string" required>
+      New password to set.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication">
+    <ParamField path="-Password (-P)" type="string">
+      Current password.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="HexString">
+      NTLM hash (hex-encoded, no colons).
+    </ParamField>
+    <ParamField path="-AesKey (-A)" type="HexString">
+      AES-128 or AES-256 key.
+    </ParamField>
+    <ParamField path="-Realm (-R)" type="string">
+      Name of the realm (domain).
+    </ParamField>
+    <ParamField path="-Workstation (-W)" type="string">
+      Client workstation name.
+    </ParamField>
+    <ParamField path="-Socks5 (-S)" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Change your own password
+Kerb changepw milchick@LUMON 10.66.0.11 -Password EradicateFolly! Br3@kr00m!
+```
+
+---
+
+## setpw
+
+Sets the password of a user account using the Windows 2000 Kerberos Change Password protocol (RFC 3244). Unlike [`changepw`](#changepw), this command can set the password of a different account and does not require an initial ticket.
+
+```bash
+Kerb setpw [options] <TargetAccount> <NewPassword>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="TargetAccount" type="UserPrincipalName" required>
+      Account whose password you want to set (e.g. `marks@lumon.ind`).
+    </ParamField>
+    <ParamField path="NewPassword" type="string" required>
+      New password to set.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication">
+    <ParamField path="-UserName (-u)" type="UserPrincipalName">
+      User name to authenticate with.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password to authenticate with.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="hexadecimal hash">
+      NTLM hash for NTLM authentication.
+    </ParamField>
+    <ParamField path="-Kdc (-K)" type="host:port">
+      KDC endpoint.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      Path to a TGT file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file.
+    </ParamField>
+    <ParamField path="-AesKey" type="HexString">
+      AES key (128 or 256).
+    </ParamField>
+    <ParamField path="-Socks5" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Network address(es) of the server.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Set your own password using setpw
+Kerb setpw -UserName milchick@LUMON -Kdc 10.66.0.11 -Password Br3@kr00m! milchick@lumon.ind EradicateFolly!
+
+# Set another user's password
+Kerb setpw -UserName milchick@LUMON -Kdc 10.66.0.11 -Password Br3@kr00m! marks@lumon.ind SafelySituated
+```
+
+---
+
+## s2k
+
+Generates Kerberos protocol keys from a string (such as a password) using the string-to-key function defined for each encryption type.
+
+For Windows domains, the salt for a user account is the FQDN of the domain in uppercase followed by the account name, computed at the time of the last password change. If the account has been renamed, the salt retains the old name until the password changes again. Use `Kerb getasinfo` to retrieve the correct salt for an account.
+
+<Warning>
+Using the wrong salt has the same effect as using the wrong password. In an Active Directory environment, this can trigger account lockout.
+</Warning>
+
+```bash
+Kerb s2k [options] <Password> [<Salt>] [<EncType>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="Password" type="string" required>
+      The string to derive keys from (e.g. a password).
+    </ParamField>
+    <ParamField path="Salt (-S)" type="string">
+      Salt as a string. For Windows users, typically the domain FQDN concatenated with the account name.
+    </ParamField>
+    <ParamField path="EncType (-E)" type="EType[]">
+      Encryption types to generate keys for. Possible values: `Rc4Hmac`, `Aes128CtsHmacSha1_96`, `Aes256CtsHmacSha1_96`, and others. Defaults to all supported types.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Possible values: `EType`, `KeyText`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Generate all keys for a user in the LUMON.IND domain
+Kerb s2k LUMON.INDmilchick Br3@kr00m!
+
+# Generate only AES keys
+Kerb s2k LUMON.INDmilchick Br3@kr00m! -EncTypes Aes128CtsHmacSha1_96,Aes256CtsHmacSha1_96
+
+# Generate keys for a computer account
+Kerb s2k LUMON.INDhostallentown.lumon.ind password
+```
+
+<Note>
+The domain name in the salt must be the FQDN (e.g. `LUMON.IND`), not the shorter NetBIOS name.
+</Note>
+
+---
+
+## Related tools
+
+- [Lsa](/tools/lsa) — look up account names and SIDs, manage privileges
+- [Sam](/tools/sam) — enumerate users from the SAM database

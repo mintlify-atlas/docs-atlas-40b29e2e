@@ -1,0 +1,561 @@
+---
+title: "Wmi"
+description: "Interact with Windows Management Instrumentation: run queries, invoke methods, execute commands, and manage the WMI repository."
+---
+
+The `Wmi` tool connects to the Windows Management Instrumentation service on a remote system and lets you run WQL queries, get and delete objects, invoke methods on classes and instances, execute commands, explore the namespace and class hierarchy, and back up or restore the WMI repository.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [query](#query) | Execute a WMI query |
+| [get](#get) | Get an object by WMI path |
+| [invoke](#invoke) | Invoke a method on a class or object |
+| [exec](#exec) | Execute a command line on a remote system |
+| [lsns](#lsns) | List namespaces within a namespace |
+| [lsclass](#lsclass) | List classes within a namespace |
+| [lsprop](#lsprop) | List the properties of a class or object |
+| [lsmethod](#lsmethod) | List the methods of a class or object |
+| [backup](#backup) | Back up the WMI repository |
+| [restore](#restore) | Restore the WMI repository |
+| [delete](#delete) | Delete a WMI object |
+
+<Note>
+For help on any subcommand, run `Wmi <subcommand> -h`.
+</Note>
+
+---
+
+## Common options
+
+All `Wmi` subcommands share these options:
+
+<AccordionGroup>
+  <Accordion title="Authentication (credentials)">
+    <ParamField path="-UserName (-u)" type="UserPrincipalName">
+      User name to authenticate with (not including the domain).
+    </ParamField>
+    <ParamField path="-UserDomain (-ud)" type="string">
+      Domain of the authenticating user.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password to authenticate with.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="hexadecimal hash">
+      NTLM hash for pass-the-hash authentication.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication (Kerberos)">
+    <ParamField path="-Kdc (-K)" type="host:port">
+      KDC endpoint. Required to enable Kerberos.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      Path to a TGT file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file.
+    </ParamField>
+    <ParamField path="-AesKey" type="HexString">
+      AES-128 or AES-256 Kerberos key.
+    </ParamField>
+    <ParamField path="-S4UserName" type="UserPrincipalName">
+      User to impersonate with S4U.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection">
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Override network address(es) of the server.
+    </ParamField>
+    <ParamField path="-EncryptRpc (-E)" type="boolean">
+      Encrypt RPC messages.
+    </ParamField>
+    <ParamField path="-Socks5" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## query
+
+Executes a WQL (WMI Query Language) query against a remote system and prints the results.
+
+```bash
+Wmi query [options] <ServerName> <Query>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="Query" type="string" required>
+      WQL query to execute (e.g. `SELECT * FROM Win32_Process`).
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Namespace" type="string" default="root\\cimv2">
+      WMI namespace to query.
+    </ParamField>
+    <ParamField path="-PageSize" type="integer" default="10">
+      Number of results to fetch at a time.
+    </ParamField>
+    <ParamField path="-Locale" type="string" default="en-US">
+      Locale for the query.
+    </ParamField>
+    <ParamField path="-WithQualifiers" type="string[]">
+      Filter by qualifiers. Each entry is a qualifier name or `name=value` pair.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      WMI object fields to display in the output.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# List all running processes
+Wmi query LUMON-FS1 -UserName milchick -Password "Br3@kr00m!" "SELECT * FROM Win32_Process"
+
+# List processes with selected fields
+Wmi query LUMON-FS1 -UserName milchick -Password "Br3@kr00m!" -OutputFields Caption,ProcessID,ParentProcessID "SELECT * FROM Win32_Process"
+```
+
+---
+
+## get
+
+Retrieves a specific WMI object by its path, relative to the namespace.
+
+<Note>
+Because the command-line parser strips double quotes, use single quotes to delimit strings within paths. Single quotes are automatically converted to double quotes before the request is sent to WMI.
+</Note>
+
+```bash
+Wmi get [options] <ServerName> <ObjectPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="ObjectPath" type="string[]" required>
+      Path of the object to get, relative to the namespace (e.g. `Win32_Process`, `Win32_LogicalDisk.DeviceID='C:'`).
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Namespace" type="string" default="root\\cimv2">
+      WMI namespace.
+    </ParamField>
+    <ParamField path="-Locale" type="string" default="en-US">
+      Locale.
+    </ParamField>
+    <ParamField path="-WithQualifiers" type="string[]">
+      Filter qualifiers.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `RelativePath`, `ObjectFlags`, `ObjectType`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Get the Win32_Process class definition
+Wmi get -namespace root\\cimv2 -UserName milchick -Password "Br3@kr00m!" LUMON-FS1 Win32_Process
+
+# Get the C: logical disk object
+Wmi get -namespace root\\cimv2 -UserName milchick -Password "Br3@kr00m!" LUMON-FS1 "Win32_LogicalDisk.DeviceID='C:'"
+```
+
+---
+
+## invoke
+
+Invokes a method on a WMI class or instance. You can target a specific instance by path or use a WQL query to select multiple objects.
+
+To pass an array argument, enclose the elements in `[` and `]`, space-separated:
+
+```bash
+Wmi invoke ... WmiMethod "first arg" [ 1 2 3 ] "last arg"
+```
+
+```bash
+Wmi invoke [options] <ServerName> <ObjectPathOrWqlQuery> <Method> [<Arguments>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="ObjectPathOrWqlQuery" type="string[]" required>
+      Class path, instance path, or WQL query selecting the objects to invoke the method on.
+    </ParamField>
+    <ParamField path="Method" type="string" required>
+      Name of the method to invoke.
+    </ParamField>
+    <ParamField path="Arguments" type="string[]">
+      Arguments to pass to the method.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Namespace" type="string" default="root\\cimv2">
+      WMI namespace.
+    </ParamField>
+    <ParamField path="-SkipParams" type="string[]">
+      Parameters to skip when invoking the method.
+    </ParamField>
+    <ParamField path="-ContinueOnError" type="boolean">
+      Continue invoking on remaining objects even if an error occurs.
+    </ParamField>
+    <ParamField path="-WithQualifiers" type="string[]">
+      Filter qualifiers.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Start explorer.exe via WMI
+Wmi invoke -namespace root\\cimv2 -UserName milchick -Password Br3@kr00m! LUMON-DC1 Win32_Process Create C:\\WINDOWS\\explorer.exe
+
+# Terminate a process by PID
+Wmi invoke -namespace root\\cimv2 -UserName milchick -Password Br3@kr00m! LUMON-DC1 Win32_Process.Handle=8008 Terminate
+
+# Terminate a process by name using a WQL query
+Wmi invoke -namespace root\\cimv2 -UserName milchick -Password Br3@kr00m! LUMON-DC1 "SELECT * FROM Win32_Process WHERE Caption='REGEDIT.EXE'" Terminate
+```
+
+---
+
+## exec
+
+Executes a command line on a remote system using `Win32_Process.Create`. By default, the command is wrapped in `cmd /q /c` and STDOUT/STDERR are captured to a temporary file in `C:\Windows\Temp`, which is retrieved periodically and printed to your local console.
+
+The command polls for process completion and output using `Win32_ProcessTrace`. Press Ctrl+C to terminate the remote process.
+
+To disable output capture or `cmd /q /c` wrapping, use `-CaptureOutput:off` or `-CmdCall:off`.
+
+```bash
+Wmi exec [options] <ServerName> <CommandLine>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="CommandLine" type="string" required>
+      Command line to execute on the remote system.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-CaptureOutput" type="boolean" default="true">
+      Redirect STDOUT and STDERR to a file and stream the output locally. Requires `-CmdCall`.
+    </ParamField>
+    <ParamField path="-CmdCall" type="boolean" default="true">
+      Prepend `cmd /q /c` to the command.
+    </ParamField>
+    <ParamField path="-Wait" type="boolean" default="true">
+      Wait for the command to complete before returning.
+    </ParamField>
+    <ParamField path="-PollInterval" type="Duration" default="1s">
+      Polling interval for checking output and process exit. Specify as a number followed by `ms`, `s`, `m`, or `h`.
+    </ParamField>
+    <ParamField path="-WorkingDir" type="string">
+      Working directory for the new process.
+    </ParamField>
+    <ParamField path="-EnvironmentVariables" type="string[]">
+      Environment variables in `NAME=value` format, comma-separated.
+    </ParamField>
+    <ParamField path="-EncryptRpc" type="boolean">
+      Encrypt RPC messages.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Run a command and capture output
+Wmi exec -UserName milchick -Password Br3@kr00m! LUMON-DC1 -Verbose SystemInfo.exe
+
+# Use an environment variable
+Wmi exec -UserName milchick -Password Br3@kr00m! LUMON-DC1 -Verbose "ECHO %MYVAR%" -EnvironmentVariables MYVAR=me
+
+# Set a fast polling interval
+Wmi exec -UserName milchick -Password Br3@kr00m! LUMON-DC1 -PollInterval 100ms -Verbose "PING -t localhost"
+```
+
+---
+
+## lsns
+
+Lists the WMI namespaces within a given namespace.
+
+```bash
+Wmi lsns [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Namespace" type="string" default="root\\cimv2">
+      Namespace to list sub-namespaces within.
+    </ParamField>
+    <ParamField path="-PageSize" type="integer" default="10">
+      Number of results to fetch at a time.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## lsclass
+
+Lists the classes within a WMI namespace.
+
+```bash
+Wmi lsclass [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Namespace" type="string" default="root\\cimv2">
+      Namespace to list classes within.
+    </ParamField>
+    <ParamField path="-PageSize" type="integer" default="10">
+      Number of results to fetch at a time.
+    </ParamField>
+    <ParamField path="-WithQualifiers" type="string[]">
+      Filter by qualifiers.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `RelativePath`, `Name`, `BaseClassName`, `ObjectFlags`, `ObjectType`, `ClassPartBytes`, `HasMethodPart`, `NdValueTableLength`, `ValueTableLength`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## lsprop
+
+Lists the properties of a WMI class or object. You may specify multiple object paths.
+
+Use `-WithQualifiers` to filter properties. A qualifier name alone matches if the qualifier is present with a non-false value. A `name=value` pair performs a case-insensitive string comparison.
+
+```bash
+Wmi lsprop [options] <ServerName> [<ObjectPath>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="ObjectPath" type="string[]">
+      Path of the class or object to inspect. Accepts multiple values.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Namespace" type="string" default="root\\cimv2">
+      WMI namespace.
+    </ParamField>
+    <ParamField path="-WithQualifiers" type="string[]">
+      Filter by qualifiers.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Name`, `PropertyType`, `DefaultValue`, `RuntimeType`, `ElementType`, `ClassOfOrigin`, `QualifiersText`, `IsReadOnly`, `ShortDescription`, `FullDescription`, `IsStatic`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# List all properties of Win32_Process
+Wmi lsprop -namespace root\\cimv2 -UserName milchick -Password Br3@kr00m! LUMON-FS1 Win32_Process
+
+# List only properties requiring SeDebugPrivilege
+Wmi lsprop -namespace root\\cimv2 -UserName milchick -Password Br3@kr00m! LUMON-FS1 -WithQualifiers Privileges=SeDebugPrivilege Win32_Process
+```
+
+---
+
+## lsmethod
+
+Lists the methods of a WMI class or object. You may specify multiple object paths.
+
+Use `-WithQualifiers` to filter methods. A `name=value` pair performs a case-insensitive string comparison.
+
+```bash
+Wmi lsmethod [options] <ServerName> <ObjectPathOrWqlQuery>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="ObjectPathOrWqlQuery" type="string[]" required>
+      Class or instance path, or WQL query. Accepts multiple values.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Namespace" type="string" default="root\\cimv2">
+      WMI namespace.
+    </ParamField>
+    <ParamField path="-WithQualifiers" type="string[]">
+      Filter by qualifiers.
+    </ParamField>
+    <ParamField path="-ContinueOnError" type="boolean">
+      Continue on error.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Name`, `Signature`, `Flags`, `ClassOfOrigin`, `IsStatic`, `IsReadOnly`, `ShortDescription`, `FullDescription`, `QualifiersText`, `PrivilegesText`, `Subtype`, `SubtypeCode`, `Id`, `IsInputParameter`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# List all methods of Win32_Process
+Wmi lsmethod -namespace root\\cimv2 -UserName milchick -Password Br3@kr00m! LUMON-FS1 Win32_Process
+
+# List only static methods
+Wmi lsmethod -namespace root\\cimv2 -UserName milchick -Password Br3@kr00m! LUMON-FS1 -WithQualifiers static Win32_Process
+
+# List methods that require SeDebugPrivilege
+Wmi lsmethod -namespace root\\cimv2 -UserName milchick -Password Br3@kr00m! LUMON-FS1 -WithQualifiers Privileges=SeDebugPrivilege Win32_Process
+```
+
+---
+
+## backup
+
+Backs up the WMI repository to a file on the remote system.
+
+```bash
+Wmi backup [options] <ServerName> <FileName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="FileName" type="string" required>
+      Path on the remote system to write the backup file to.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Wmi backup -UserName milchick -Password Br3@kr00m! LUMON-FS1 C:\\wmibackup.bak
+```
+
+---
+
+## restore
+
+Restores the WMI repository from a backup file on the remote system.
+
+```bash
+Wmi restore [options] <ServerName> <FileName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="FileName" type="string" required>
+      Path on the remote system to read the backup file from.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-ForceShutdown" type="boolean">
+      Force active clients to shut down before restoring.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## delete
+
+Deletes a WMI object or a set of objects matching a WQL query.
+
+```bash
+Wmi delete [options] <ServerName> <ObjectPathOrWqlQuery>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name of the server to connect to.
+    </ParamField>
+    <ParamField path="ObjectPathOrWqlQuery" type="string[]" required>
+      Object path or WQL query selecting objects to delete.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Namespace" type="string" default="root\\cimv2">
+      WMI namespace.
+    </ParamField>
+    <ParamField path="-ContinueOnError" type="boolean">
+      Continue even if errors occur.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Terminate a process by PID
+Wmi delete -UserName milchick -Password Br3@kr00m! LUMON-DC1 Win32_Process.Handle=8008
+
+# Terminate a process by name
+Wmi delete -UserName milchick -Password Br3@kr00m! LUMON-DC1 "SELECT * FROM Win32_Process WHERE Caption='REGEDIT.EXE'"
+```
+
+---
+
+## Related tools
+
+- [Scm](/tools/scm) — manage services on remote Windows systems
+- [Smb2Client](/tools/smb2client) — file operations over SMB2 (used by `Wmi exec` to retrieve output)

@@ -1,0 +1,124 @@
+---
+title: "Building from Source"
+description: "Compile Titanis from source using the .NET 8 SDK or Visual Studio 2022."
+---
+
+Building Titanis from source gives you the latest code and lets you make modifications to the library or CLI tools. Titanis targets .NET 8 and builds on both Windows and Linux.
+
+## Prerequisites
+
+Install the **.NET 8 SDK** before you build. It is the only required dependency.
+
+<Tabs>
+  <Tab title="Linux">
+    Follow the [.NET 8 SDK installation instructions for Linux](https://learn.microsoft.com/en-us/dotnet/core/install/linux) on the Microsoft documentation site. Package manager instructions are available for all major distributions (apt, dnf, zypper, and others).
+  </Tab>
+  <Tab title="Windows">
+    Follow the [.NET 8 SDK installation instructions for Windows](https://learn.microsoft.com/en-us/dotnet/core/install/windows) on the Microsoft documentation site. You can install via the official installer, winget, or as part of Visual Studio 2022.
+  </Tab>
+</Tabs>
+
+Verify the SDK is installed and on your PATH:
+
+```bash
+dotnet --version
+```
+
+The output should report version `8.x.x` or higher.
+
+## Building with dotnet build
+
+This method works on both Windows and Linux.
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the Titanis source code from GitHub:
+
+    ```bash
+    git clone https://github.com/trustedsec/Titanis.git
+    cd Titanis
+    ```
+  </Step>
+
+  <Step title="Build the solution">
+    Run `dotnet build` from the root of the repository. This compiles the entire solution including all libraries, tools, and tests:
+
+    <CodeGroup>
+
+    ```bash Debug (default)
+    dotnet build
+    ```
+
+    ```bash Release
+    dotnet build --configuration Release
+    ```
+
+    </CodeGroup>
+
+    The build output is placed in each project's `bin/` subdirectory.
+  </Step>
+
+  <Step title="Locate the tool binaries">
+    Each CLI tool is built into its own directory under `tools/`. For example, after a debug build you can find the `Smb2Client` binary at:
+
+    <Tabs>
+      <Tab title="Linux">
+        ```
+        tools/Smb2Client/bin/Debug/net8.0/Smb2Client
+        ```
+      </Tab>
+      <Tab title="Windows">
+        ```
+        tools\Smb2Client\bin\Debug\net8.0\Smb2Client.exe
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+## Building with Visual Studio 2022
+
+Visual Studio 2022 is supported on Windows only.
+
+<Steps>
+  <Step title="Open the solution">
+    Open `Titanis.sln` in the root of the repository. Visual Studio will restore NuGet packages automatically.
+  </Step>
+
+  <Step title="Build">
+    Click **Build** > **Build Solution** (or press `Ctrl+Shift+B`). All projects in the solution are compiled.
+  </Step>
+</Steps>
+
+## Release builds and signing
+
+<Note>
+  Release builds require a strong-name key file. If `Titanis.snk` is not present in the repository root, the Release configuration will fail to build.
+</Note>
+
+Release builds sign the compiled assemblies using a strong-name key file (`Titanis.snk`). This key is not included in the public repository. If you are building for internal distribution and require signed assemblies, you will need to supply your own key file:
+
+```bash
+# Generate a new strong-name key pair
+dotnet sn -k Titanis.snk
+
+# Then build with Release configuration
+dotnet build --configuration Release
+```
+
+Debug builds do not require `Titanis.snk` and are suitable for development and testing.
+
+## Project structure
+
+The solution organizes code into the following functional groups:
+
+| Group | Description |
+|---|---|
+| **Base** | Utilities shared across other components |
+| **Crypto** | Cryptographic algorithm implementations |
+| **Formats** | Readers and writers for formats such as ASN.1 |
+| **Protocols** | Network protocol implementations (SMB2, MSRPC, LDAP) |
+| **Security** | Security protocol implementations (NTLM, Kerberos, SP-NEGO) |
+| **Tools** | Standalone CLI tools |
+| **Test** | Unit tests |
+| **_Build** | Build configuration files |

@@ -1,0 +1,156 @@
+---
+title: "Installation"
+description: "Download and set up pre-built Titanis binaries on Windows or Linux."
+---
+
+Titanis ships as a set of standalone executables built for Windows and Linux. You do not need to install the .NET 8 runtime separately — each binary is self-contained.
+
+<Note>
+  If you prefer to build Titanis yourself from source, see [Building from Source](/getting-started/building) instead.
+</Note>
+
+## Download the binaries
+
+<Steps>
+  <Step title="Download the latest release archive">
+    Go to the [Titanis releases page](https://github.com/trustedsec/Titanis/releases) on GitHub and download the archive for your platform.
+
+    Each release includes a zip or tarball containing all CLI tool binaries pre-compiled for both Windows and Linux.
+  </Step>
+
+  <Step title="Extract the archive">
+    Extract the archive to a directory of your choice.
+
+    <Tabs>
+      <Tab title="Linux">
+        ```bash
+        tar -xzf titanis-<version>-linux.tar.gz -C ~/titanis
+        ```
+      </Tab>
+      <Tab title="Windows">
+        Right-click the `.zip` file in Explorer and select **Extract All**, or use PowerShell:
+
+        ```powershell
+        Expand-Archive -Path titanis-<version>-windows.zip -DestinationPath C:\titanis
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Make executables runnable (Linux only)">
+    On Linux, the extracted files do not have the execute bit set. You must add it before running any tool:
+
+    ```bash
+    # Make a single tool executable
+    chmod +x ~/titanis/Smb2Client/Smb2Client
+
+    # Or make all tools executable at once
+    find ~/titanis -type f ! -name "*.*" -exec chmod +x {} \;
+    ```
+
+    <Warning>
+      On Linux, skipping `chmod +x` will result in a `Permission denied` error when you try to run a tool.
+    </Warning>
+  </Step>
+
+  <Step title="(Optional) Add the tool directories to your PATH">
+    To run Titanis tools from any working directory, add them to your `PATH`.
+
+    <Tabs>
+      <Tab title="Linux">
+        Add the following to your `~/.bashrc`, `~/.zshrc`, or equivalent shell profile:
+
+        ```bash
+        export PATH="$PATH:$HOME/titanis/Smb2Client"
+        # Repeat for each tool you use frequently
+        ```
+
+        Then reload your shell:
+
+        ```bash
+        source ~/.bashrc
+        ```
+      </Tab>
+      <Tab title="Windows">
+        Open **System Properties** > **Environment Variables**, select `Path` under **User variables**, and add the path to each tool directory. Alternatively, use PowerShell:
+
+        ```powershell
+        $env:Path += ";C:\titanis\Smb2Client"
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Verify the installation">
+    Run any tool with the `-?` flag to confirm it is working correctly:
+
+    <Tabs>
+      <Tab title="Linux">
+        ```bash
+        ./Smb2Client -?
+        ```
+      </Tab>
+      <Tab title="Windows">
+        ```powershell
+        .\Smb2Client.exe -?
+        ```
+      </Tab>
+    </Tabs>
+
+    If the tool prints its help text, the installation is working.
+  </Step>
+</Steps>
+
+## Setting up KRB5CCNAME
+
+Titanis uses the `KRB5CCNAME` environment variable to determine where Kerberos credentials are stored and read from. Setting this variable is strongly recommended when working with Kerberos authentication.
+
+<Tip>
+  Use one ccache file per identity. This lets you switch between credentials without re-authenticating by updating `KRB5CCNAME` to point to the appropriate file.
+</Tip>
+
+<Tabs>
+  <Tab title="Linux">
+    Set `KRB5CCNAME` in your shell profile for a persistent default, or export it inline for a specific session:
+
+    ```bash
+    # Persistent default in ~/.bashrc or ~/.zshrc
+    export KRB5CCNAME=/home/user/.creds/adminuser.ccache
+
+    # Session-scoped override
+    KRB5CCNAME=/home/user/.creds/serviceaccount.ccache ./Smb2Client ...
+    ```
+  </Tab>
+  <Tab title="Windows">
+    Set `KRB5CCNAME` as a user environment variable or define it inline in PowerShell:
+
+    ```powershell
+    # Current session
+    $env:KRB5CCNAME = "C:\creds\adminuser.ccache"
+
+    # Persistent (applies to future sessions)
+    [System.Environment]::SetEnvironmentVariable("KRB5CCNAME", "C:\creds\adminuser.ccache", "User")
+    ```
+  </Tab>
+</Tabs>
+
+Titanis stores tickets received from the KDC in the file pointed to by `KRB5CCNAME` and reuses them automatically for subsequent commands. If you need to use multiple identities simultaneously, create a separate `.ccache` file for each and update `KRB5CCNAME` accordingly.
+
+## Cross-platform support
+
+Titanis targets **.NET 8** and runs on Windows and Linux without modification. The same tool binaries work identically across platforms — all protocol implementations, authentication methods, and output formats are available on both operating systems.
+
+<Note>
+  macOS is not an officially supported platform, though .NET 8 itself runs on macOS. Your mileage may vary.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="User Guide" icon="book-open" href="/user-guide">
+    Learn the command line syntax, authentication options, and how to use each tool.
+  </Card>
+  <Card title="Building from Source" icon="hammer" href="/getting-started/building">
+    Compile Titanis yourself to get the latest changes or modify the code.
+  </Card>
+</CardGroup>

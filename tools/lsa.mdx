@@ -1,0 +1,544 @@
+---
+title: "Lsa"
+description: "Interact with the Windows Local Security Authority: look up names and SIDs, enumerate accounts, and manage privileges and system access rights."
+---
+
+The `Lsa` tool connects to the Local Security Authority on a remote Windows system and lets you translate account names to SIDs and back, enumerate LSA policy accounts and their privileges, create LSA accounts, and grant or revoke privileges and system access rights.
+
+<Note>
+The LSA tracks accounts separately from the SAM. Even for local accounts, you may need to create an LSA policy account first with [`createaccount`](#createaccount) before granting privileges.
+</Note>
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [whoami](#whoami) | Get the name and domain of the connected user |
+| [lookupname](#lookupname) | Get the SID for one or more account names |
+| [lookupsid](#lookupsid) | Translate one or more SIDs to their account names |
+| [enumaccounts](#enumaccounts) | Enumerate LSA policy accounts |
+| [enumprivaccounts](#enumprivaccounts) | Enumerate accounts that have a specific privilege or user right |
+| [createaccount](#createaccount) | Create an LSA policy account |
+| [getprivs](#getprivs) | Get the privileges assigned to an account |
+| [getrights](#getrights) | Get the user rights and privileges granted to an account |
+| [getsysaccess](#getsysaccess) | Get the system access rights granted to an account |
+| [setsysaccess](#setsysaccess) | Set the system access rights granted to an account |
+| [addpriv](#addpriv) | Add one or more privileges to an account |
+| [rmpriv](#rmpriv) | Remove one or more privileges from an account |
+
+<Note>
+For help on any subcommand, run `Lsa <subcommand> -h`.
+</Note>
+
+---
+
+## Common options
+
+All `Lsa` subcommands share these authentication and connection options:
+
+<AccordionGroup>
+  <Accordion title="Authentication (credentials)">
+    <ParamField path="-UserName (-u)" type="UserPrincipalName">
+      User name to authenticate with (not including the domain).
+    </ParamField>
+    <ParamField path="-UserDomain (-ud)" type="string">
+      Domain of the authenticating user.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password to authenticate with.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="hexadecimal hash">
+      NTLM hash for pass-the-hash authentication.
+    </ParamField>
+    <ParamField path="-Anonymous" type="boolean">
+      Use anonymous login.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication (Kerberos)">
+    <ParamField path="-Kdc (-K)" type="host:port">
+      KDC endpoint. Required to enable Kerberos.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      Path to a TGT file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file.
+    </ParamField>
+    <ParamField path="-AesKey" type="HexString">
+      AES-128 or AES-256 Kerberos key.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection">
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Override network address(es) of the server.
+    </ParamField>
+    <ParamField path="-UseTcp4Only (-4)" type="boolean">
+      Use TCP over IPv4 only.
+    </ParamField>
+    <ParamField path="-UseTcp6Only (-6)" type="boolean">
+      Use TCP over IPv6 only.
+    </ParamField>
+    <ParamField path="-EncryptRpc" type="boolean">
+      Encrypt RPC messages.
+    </ParamField>
+    <ParamField path="-PreferSmb" type="boolean">
+      Connect over a named pipe instead of TCP when supported.
+    </ParamField>
+    <ParamField path="-Socks5" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## whoami
+
+Returns the name and domain of the user account used to authenticate to the LSA.
+
+```bash
+Lsa whoami [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `WireName`, `UserName`, `Realm`, `OriginalText`, `NameType`, `NamePartCount`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Lsa whoami LUMON-FS1 -UserName milchick -Password Br3@kr00m!
+```
+
+---
+
+## lookupname
+
+Translates one or more account names to their SIDs. Accepts multiple names in a single call.
+
+```bash
+Lsa lookupname [options] <ServerName> <AccountNames>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="AccountNames" type="string[]" required>
+      One or more account names to look up.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `AccountName`, `NameType`, `DomainName`, `DomainSid`, `AccountRid`, `AccountSid`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Lsa lookupname LUMON-FS1 -UserName milchick -Password Br3@kr00m! marks milchick
+```
+
+---
+
+## lookupsid
+
+Translates one or more SIDs to their account names. Accepts multiple SIDs in a single call.
+
+```bash
+Lsa lookupsid [options] <ServerName> <Sids>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="Sids" type="SecurityIdentifier[]" required>
+      One or more SIDs to translate.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `AccountName`, `NameType`, `DomainName`, `DomainSid`, `AccountRid`, `AccountSid`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Lsa lookupsid LUMON-FS1 -UserName milchick -Password Br3@kr00m! S-1-5-21-1752138614-393460150-3098146133-1103 S-1-5-21-1752138614-393460150-3098146133-1107
+```
+
+---
+
+## enumaccounts
+
+Enumerates accounts in the LSA policy database. By default returns only SIDs. Use `-OutputFields` to include account and domain names, which requires additional RPC calls.
+
+```bash
+Lsa enumaccounts [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Sid`, `AccountName`, `DomainName`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# List account SIDs only
+Lsa enumaccounts LUMON-FS1 -UserName milchick -Password Br3@kr00m!
+
+# Include account and domain names
+Lsa enumaccounts LUMON-FS1 -UserName milchick -Password Br3@kr00m! -OutputFields Sid,AccountName,DomainName
+```
+
+---
+
+## enumprivaccounts
+
+Enumerates accounts that hold a specific privilege or user right.
+
+```bash
+Lsa enumprivaccounts [options] -Privilege <String> <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Privilege" type="string" required>
+      Name of the privilege or user right to search for. Examples: `SeInteractiveLogonRight`, `SeDebugPrivilege`, `SeBackupPrivilege`.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Sid`, `AccountName`, `DomainName`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Lsa enumprivaccounts LUMON-FS1 -UserName milchick -Password Br3@kr00m! -Privilege SeInteractiveLogonRight
+```
+
+---
+
+## createaccount
+
+Creates an LSA policy account for the given SID. This is required before you can grant privileges or access rights to an account that doesn't yet have an LSA entry.
+
+```bash
+Lsa createaccount [options] <ServerName> <Sid>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="Sid" type="SecurityIdentifier" required>
+      SID of the account to create.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Lsa createaccount LUMON-FS1 -UserName milchick -Password Br3@kr00m! S-1-5-32-646
+```
+
+---
+
+## getprivs
+
+Gets the privileges assigned to an account. Specify the account by SID (`-BySid`) or name (`-ByName`). One of these options is required.
+
+By default, only the names of well-known privileges are resolved. To retrieve names for all privileges, add `PrivilegeName` to `-OutputFields`.
+
+```bash
+Lsa getprivs [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-BySid" type="SecurityIdentifier">
+      SID of the account.
+    </ParamField>
+    <ParamField path="-ByName" type="string">
+      Name of the account.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Privilege`, `Attributes`, `PrivilegeName`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Look up by SID
+Lsa getprivs LUMON-FS1 -UserName milchick -Password Br3@kr00m! -BySid S-1-5-32-544
+
+# Look up by name
+Lsa getprivs LUMON-FS1 -UserName milchick -Password Br3@kr00m! -ByName Administrator
+
+# Include resolved privilege names
+Lsa getprivs LUMON-FS1 -UserName milchick -Password Br3@kr00m! -ByName Administrator -OutputFields Privilege,PrivilegeName
+```
+
+---
+
+## getrights
+
+Gets all user rights and privileges granted to an account. Specify the account by SID (`-BySid`) or name (`-ByName`).
+
+```bash
+Lsa getrights [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-BySid" type="SecurityIdentifier">
+      SID of the account.
+    </ParamField>
+    <ParamField path="-ByName" type="string">
+      Name of the account.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Name`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Lsa getrights LUMON-FS1 -UserName milchick -Password Br3@kr00m! -BySid S-1-5-32-544
+Lsa getrights LUMON-FS1 -UserName milchick -Password Br3@kr00m! -ByName Administrators
+```
+
+---
+
+## getsysaccess
+
+Gets the system access rights granted to an account. Specify the account by SID (`-BySid`) or name (`-ByName`).
+
+```bash
+Lsa getsysaccess [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-BySid" type="SecurityIdentifier">
+      SID of the account.
+    </ParamField>
+    <ParamField path="-ByName" type="string">
+      Name of the account.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Value`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Lsa getsysaccess LUMON-FS1 -UserName milchick -Password Br3@kr00m! -BySid S-1-5-32-544
+Lsa getsysaccess LUMON-FS1 -UserName milchick -Password Br3@kr00m! -ByName Administrators
+```
+
+---
+
+## setsysaccess
+
+Sets the system access rights granted to an account. By default, the specified rights are added to any already granted. Use `-Reset` to clear existing rights and grant only the rights specified. To remove all rights, use `-Reset` with `0`.
+
+System access rights include logon rights such as `SeInteractiveLogonRight` and `SeServiceLogonRight`.
+
+```bash
+Lsa setsysaccess [options] <ServerName> <Rights>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="Rights" type="SystemAccessRights[]" required>
+      Access rights to grant. Possible values: `SeInteractiveLogonRight`, `SeNetworkLogonRight`, `SeBatchLogonRight`, `SeServiceLogonRight`, `SeDenyInteractiveLogonRight`, `SeDenyNetworkLogonRight`, `SeDenyBatchLogonRight`, `SeDenyServiceLogonRight`, `SeRemoteInteractiveLogonRight`, `SeDenyRemoteInteractiveLogonRight`.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-BySid" type="SecurityIdentifier">
+      SID of the account.
+    </ParamField>
+    <ParamField path="-ByName" type="string">
+      Name of the account.
+    </ParamField>
+    <ParamField path="-Reset" type="boolean">
+      Clear any existing rights before applying the specified ones.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+Lsa setsysaccess LUMON-FS1 -UserName milchick -Password Br3@kr00m! -BySid S-1-5-32-544 SeBatchLogonRight
+Lsa setsysaccess LUMON-FS1 -UserName milchick -Password Br3@kr00m! -ByName Administrators SeBatchLogonRight
+```
+
+---
+
+## addpriv
+
+Adds one or more privileges to an account. Specify the account by SID (`-BySid`) or name (`-ByName`).
+
+Privilege names can be symbolic (e.g. `SeLoadDriverPrivilege`) or numeric 64-bit integers. For predefined privileges, you may omit the `Privilege` suffix (e.g. `SeLoadDriver` instead of `SeLoadDriverPrivilege`). If the name is not predefined, it is resolved with the remote LSA.
+
+<Warning>
+This command cannot be used to grant user rights (logon rights). Use [`setsysaccess`](#setsysaccess) for that.
+</Warning>
+
+```bash
+Lsa addpriv [options] <ServerName> <Privileges>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="Privileges" type="string[]" required>
+      Names or numeric values of the privileges to add. Examples: `SeLoadDriverPrivilege`, `SeTcbPrivilege`, `SeDebugPrivilege`, `SeBackupPrivilege`, `SeRestorePrivilege`, `SeImpersonatePrivilege`.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-BySid" type="SecurityIdentifier">
+      SID of the account.
+    </ParamField>
+    <ParamField path="-ByName" type="string">
+      Name of the account.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Add privileges by account name
+Lsa addpriv LUMON-FS1 -UserName milchick -Password Br3@kr00m! -ByName Administrators SeLoadDriver SeTcb
+
+# Add privileges by SID
+Lsa addpriv LUMON-FS1 -UserName milchick -Password Br3@kr00m! -BySid S-1-5-32-646 SeLoadDriver SeTcb
+```
+
+---
+
+## rmpriv
+
+Removes one or more privileges from an account. To remove all privileges, specify `*` (escape as needed in your shell). Specify the account by SID (`-BySid`) or name (`-ByName`).
+
+<Warning>
+This command cannot be used to remove user rights (logon rights).
+</Warning>
+
+```bash
+Lsa rmpriv [options] <ServerName> <Privileges>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+    <ParamField path="Privileges" type="string[]" required>
+      Names or numeric values of the privileges to remove. Use `*` to remove all privileges.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-BySid" type="SecurityIdentifier">
+      SID of the account.
+    </ParamField>
+    <ParamField path="-ByName" type="string">
+      Name of the account.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Remove a privilege by account name
+Lsa rmpriv LUMON-FS1 -UserName milchick -Password Br3@kr00m! -ByName Administrators SeTcb
+
+# Remove a privilege by SID
+Lsa rmpriv LUMON-FS1 -UserName milchick -Password Br3@kr00m! -BySid S-1-5-32-646 SeTcb
+
+# Remove all privileges
+Lsa rmpriv LUMON-FS1 -UserName milchick -Password Br3@kr00m! -BySid S-1-5-32-646 "*"
+```
+
+---
+
+## Related tools
+
+- [Sam](/tools/sam) — enumerate users, groups, and aliases from the SAM database
+- [Kerb](/tools/kerb) — Kerberos authentication operations

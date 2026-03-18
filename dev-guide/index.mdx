@@ -1,0 +1,120 @@
+---
+title: "Developer guide"
+description: "An overview of the Titanis library architecture, available NuGet packages, and how to get started building with Titanis in your own projects."
+---
+
+Titanis is organized as a collection of focused libraries. You can take dependencies on only the packages relevant to your use case rather than pulling in the entire framework. This page describes the component areas, available packages, and how to add references to your project.
+
+## Architecture overview
+
+The Titanis source tree is divided into five main areas under `src/`:
+
+| Area | Path | Purpose |
+|------|------|---------|
+| Base | `src/base/` | Core utilities, I/O abstractions, CLI framework, and PDU struct primitives used by every other component |
+| Crypto | `src/crypto/` | Cryptographic algorithm implementations (AES-128-CMAC, DES, Diffie-Hellman, MD4, MD5, RC4, SHA-1, SHA-2, SP800-108) |
+| Formats | `src/formats/` | Format parsers including ASN.1 and CD-ROM |
+| Net | `src/net/` | Network protocol implementations: SMB2, DCE/RPC, DCOM, LDAP, MSRPC, SSH, SOCKS, D-Bus, X11 |
+| Security | `src/security/` | Security protocols: NTLM, Kerberos, SPNEGO, and certificate handling |
+
+## Available packages
+
+### Base packages
+
+| Package | Description |
+|---------|-------------|
+| `Titanis.Core` | Core types and utilities shared across all Titanis components |
+| `Titanis.IO` | `IByteSource` and `ByteWriter` abstractions for reading and writing binary data |
+| `Titanis.Cli` | Framework for building command-line utilities with parameters, validation, and CTRL+C handling |
+| `Titanis.Cli.Workflow` | Step-based workflow execution with rollback support |
+| `Titanis.Cli.CommonParameters` | Shared parameter definitions reused across multiple CLI tools |
+| `Titanis.PduStruct` | Attributes that drive the PDU source generator (`[PduStruct]`, `[PduField]`, etc.) |
+| `Titanis.Dynamic` | Dynamic dispatch helpers used by DCOM and WMI |
+| `Titanis.Reflection` | Reflection utilities |
+| `Titanis.Mocks` | Test-oriented mock implementations of Titanis service interfaces |
+
+### Crypto packages
+
+| Package | Description |
+|---------|-------------|
+| `Titanis.Crypto` | Base cryptographic types |
+| `Titanis.Crypto.Aes128Cmac` | AES-128-CMAC implementation |
+| `Titanis.Crypto.Des` | DES/3DES implementation |
+| `Titanis.Crypto.Md4` | MD4 implementation (used by NTLM) |
+| `Titanis.Crypto.Md5` | MD5 implementation |
+| `Titanis.Crypto.Rc4` | RC4 implementation |
+| `Titanis.Crypto.Sp800_108` | NIST SP 800-108 key derivation |
+
+### Format packages
+
+| Package | Description |
+|---------|-------------|
+| `Titanis.Asn1` | ASN.1 DER/BER parser and writer |
+
+### Network packages
+
+| Package | Description |
+|---------|-------------|
+| `Titanis.Net` | Socket, name resolution, and credential service interfaces and default implementations |
+| `Titanis.Smb2` | SMB 2.x/3.x client |
+| `Titanis.DceRpc` | DCE/RPC client |
+| `Titanis.DceRpc.Core` | Core DCE/RPC types |
+| `Titanis.Msrpc` | MSRPC protocol bindings (LSA, SAM, SCM, EFS, registry, server service) |
+| `Titanis.Ldap` | LDAP client |
+| `Titanis.Socks` | SOCKS5 proxy support |
+| `Titanis.Ssh` | SSH protocol support |
+
+### Security packages
+
+| Package | Description |
+|---------|-------------|
+| `Titanis.Security` | Core security interfaces and types |
+| `Titanis.Security.Ntlm` | NTLM authentication |
+| `Titanis.Security.Kerberos` | Kerberos authentication with PKINIT, S4U, and ticket management |
+| `Titanis.Security.Spnego` | SPNEGO negotiation wrapping NTLM and Kerberos |
+| `Titanis.Certificates` | X.509 certificate handling |
+
+## Adding references to your project
+
+All Titanis packages share a single version number. When consuming packages from NuGet, reference the version you need:
+
+```xml project.csproj
+<ItemGroup>
+  <PackageReference Include="Titanis.Core" Version="0.9.0" />
+  <PackageReference Include="Titanis.Net" Version="0.9.0" />
+  <PackageReference Include="Titanis.Smb2" Version="0.9.0" />
+  <PackageReference Include="Titanis.Security" Version="0.9.0" />
+  <PackageReference Include="Titanis.Security.Ntlm" Version="0.9.0" />
+  <PackageReference Include="Titanis.Security.Spnego" Version="0.9.0" />
+  <PackageReference Include="Titanis.Security.Kerberos" Version="0.9.0" />
+</ItemGroup>
+```
+
+If you are working inside the Titanis repository itself, use `<ProjectReference>` elements pointing to the `.csproj` files under `src/` instead of `<PackageReference>`.
+
+<Note>
+For Release builds, Titanis assemblies are optionally strong-named using `Titanis.snk`. Place the key file in the same directory as `Titanis.sln` before building in the Release configuration. If the file is absent the build succeeds without signing.
+</Note>
+
+## Developer guide pages
+
+<CardGroup cols={2}>
+  <Card title="Versioning" icon="tag" href="/dev-guide/versioning">
+    How Titanis assembly versions and file versions work, and how central package management keeps versions consistent.
+  </Card>
+  <Card title="Using the SMB2 library" icon="folder-open" href="/dev-guide/using-smb">
+    Create a project, add the required references, and perform authenticated file operations over SMB2.
+  </Card>
+  <Card title="Using services" icon="plug" href="/dev-guide/services">
+    Understand the service interfaces that let you inject custom socket, name resolution, and credential behavior.
+  </Card>
+  <Card title="Using source generation" icon="wand-magic-sparkles" href="/dev-guide/source-generator">
+    Use the PDU source generator to automatically implement binary serialization for protocol data structures.
+  </Card>
+  <Card title="Building a CLI utility" icon="terminal" href="/dev-guide/command-line-utility">
+    Build a new command-line tool using the `Titanis.Cli` framework with typed parameters, validation, and CTRL+C handling.
+  </Card>
+  <Card title="Code samples" icon="code" href="/dev-guide/samples">
+    Browse the sample projects that demonstrate real-world usage across SMB, RPC, DCOM, and WMI.
+  </Card>
+</CardGroup>

@@ -1,0 +1,198 @@
+---
+title: "Using source generation"
+description: "How to use the Titanis PDU source generator to automatically implement binary serialization for protocol data structures."
+---
+
+Many of the binary protocol data structures in Titanis are serialized and deserialized using a C# source generator. Instead of writing `ReadXxx`/`WriteXxx` calls by hand for every field, you annotate your struct or class with attributes and the generator produces the implementation for you.
+
+Source generation is spread across three components:
+
+| Component | Role |
+|-----------|------|
+| `Titanis.SourceGen` | The Roslyn source generator that runs at build time |
+| `Titanis.PduStruct` | A shared project that defines the attributes (`[PduStruct]`, `[PduField]`, etc.) |
+| `Titanis.IO` | Provides `IByteSource` and `ByteWriter`, the types the generated code reads from and writes to |
+
+## Enabling the source generator
+
+Add `Titanis.SourceGen` to your project as an analyzer, not as a regular assembly reference:
+
+```xml project.csproj
+<ItemGroup>
+  <ProjectReference
+      Include="$(SolutionDir)\src\build\Titanis.SourceGen\Titanis.SourceGen.csproj"
+      ReferenceOutputAssembly="false"
+      OutputItemType="Analyzer" />
+</ItemGroup>
+```
+
+The `ReferenceOutputAssembly="false"` and `OutputItemType="Analyzer"` attributes tell MSBuild and Visual Studio to invoke the generator at build time without linking the generator assembly into your output.
+
+<Note>
+Also add a reference to `Titanis.PduStruct` so that the attribute types are available in your source, and to `Titanis.IO` so that `IByteSource` and `ByteWriter` are available.
+</Note>
+
+## Marking a type for generation
+
+Apply `[PduStruct]` to a `partial` class or struct to trigger code generation:
+
+```csharp
+[PduStruct]
+partial struct PduHeader
+{
+    internal ushort size;
+    private ushort reserved;
+}
+```
+
+The declaration must be `partial` so the generator can add the generated methods to the same type. The generator produces implementations of `IPduStruct` — specifically the methods that read from an `IByteSource` and write to a `ByteWriter`.
+
+A type marked with `[PduStruct]` may inherit another `[PduStruct]`-marked type. The generated code calls the base type's read/write methods first before processing its own members.
+
+## Controlling which members are included
+
+By default, all fields (regardless of access modifier) are included. Properties are excluded by default.
+
+```csharp
+[PduStruct]
+partial struct PduHeader
+{
+    internal int includedField;         // included automatically
+
+    [PduIgnore]
+    internal int ignoredField;          // excluded by [PduIgnore]
+
+    internal int IgnoredProperty { get; set; }  // excluded (property)
+
+    [PduField]
+    internal int IncludedProperty { get; set; } // included by [PduField]
+}
+```
+
+## Setting byte order
+
+Use `[PduByteOrder]` to specify endianness. You can apply it at the assembly level, to a type, or to an individual field. More specific scopes override less specific ones.
+
+```csharp
+// Apply little-endian as the default for the whole assembly
+[assembly: PduByteOrder(PduByteOrder.LittleEndian)]
+
+[PduStruct]
+[PduByteOrder(PduByteOrder.BigEndian)]  // override for this type
+partial struct MyPdu
+{
+    internal int intBE;  // big-endian (from type-level attribute)
+
+    [PduByteOrder(PduByteOrder.LittleEndian)]  // override for this field
+    internal int intLE;
+}
+```
+
+## Strings
+
+The generator cannot infer how to serialize a string without additional information. Annotate string fields with `[PduString]`, specifying the character set and the name of a member that returns the byte count at runtime:
+
+```csharp
+[PduStruct]
+partial struct CountedString
+{
+    internal ushort byteCount;
+
+    [PduString(CharSet.Ansi, nameof(byteCount))]
+    internal string str;
+}
+```
+
+The size member may be a field, property, or zero-argument method, and may be instance or static. The size is read when deserializing; when serializing it is your application's responsibility to keep `byteCount` consistent with the actual string content.
+
+## Arrays
+
+Annotate array fields with `[PduArraySize]`, providing the name of a member that returns the element count:
+
+```csharp
+[PduStruct]
+partial struct CountedArray
+{
+    internal ushort elementCount;
+
+    [PduArraySize(nameof(elementCount))]
+    internal int[] elements;
+}
+```
+
+As with strings, the element count is consulted only during deserialization.
+
+## Conditional fields
+
+Use `[PduConditional]` when a flag in the PDU controls whether a field is present:
+
+```csharp
+[PduStruct]
+partial struct ConditionalField
+{
+    internal int includedFields;
+
+    internal bool IncludeField1 => 0 != (this.includedFields & 1);
+
+    [PduConditional(nameof(IncludeField1))]
+    internal int? field1;
+
+    internal bool IncludeField2 => 0 != (this.includedFields & 2);
+
+    [PduConditional(nameof(IncludeField2))]
+    internal int field2;
+}
+```
+
+`[PduConditional]` is required on `Nullable<T>` fields and nullable reference types. The generated code evaluates the condition both when reading and writing. If the condition is `true` but the field is not set, a `NullReferenceException` occurs at runtime — keep the value and condition consistent.
+
+## Capturing stream position
+
+Declare a `long` field and mark it with `[PduPosition]` to record the byte offset within the stream at that point:
+
+```csharp
+[PduStruct]
+partial struct PduWithPosition
+{
+    [PduPosition]
+    internal long positionWithinStream;
+
+    internal int data;
+}
+```
+
+The generator does not read any bytes for this field; it simply records the current stream position.
+
+## Custom read and write methods
+
+When none of the built-in attributes cover your scenario, you can provide custom read and write methods using `[PduField]` with the `ReadMethod` and `WriteMethod` named arguments:
+
+```csharp
+[PduStruct]
+partial struct PduWithCustomField
+{
+    [PduField(ReadMethod = nameof(ReadCustom), WriteMethod = nameof(WriteCustom))]
+    internal string customField;
+
+    private string ReadCustom(IByteSource source, PduByteOrder byteOrder)
+    {
+        // Custom deserialization logic
+        return "";
+    }
+
+    private void WriteCustom(ByteWriter writer, string value, PduByteOrder byteOrder)
+    {
+        // Custom serialization logic
+    }
+}
+```
+
+The generator still applies `[PduAlignment]` and `[PduConditional]` before invoking your custom methods.
+
+<Tip>
+If the same custom pattern appears in multiple PDUs, prefer implementing `IPduStruct` on a dedicated struct and embedding it, so the logic is reusable rather than duplicated across custom method pairs.
+</Tip>
+
+## Reference
+
+For complete working examples of every attribute, consult the `PduStructSample` project under `samples/` in the Titanis repository.

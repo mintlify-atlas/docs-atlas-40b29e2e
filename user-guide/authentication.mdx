@@ -1,0 +1,221 @@
+---
+title: "Authentication"
+description: "Authentication parameters shared by all Titanis network commands — NTLM, Kerberos, SPNEGO, pass-the-hash, certificates, and S4U delegation."
+---
+
+Every Titanis command that authenticates over the network accepts a uniform set of authentication parameters. Titanis builds security contexts for both NTLM and Kerberos based on what you provide. If both are available it wraps them in an SPNEGO context; if only one is available it uses that directly (unless the protocol requires SPNEGO, as SMB2 does).
+
+<Note>
+Titanis uses **only** the information on the command line and certain environment variables for authentication. It does not read your current session, OS credential store, or logged-on user identity.
+</Note>
+
+## Quick reference
+
+| If you have… | Parameters | Protocols | Notes |
+|---|---|---|---|
+| Nothing | `-Anonymous` | NTLM | Use with `-vv` to discover the domain and computer name of a server. |
+| User name + password | `-UserName <user>` `-Password <pass>` | NTLM | Domain is inferred from the NTLM challenge. Escape shell special characters. |
+| User name + password (with domain) | `-UserName <domain>\<user>` or `-UserName <user>@<domain>` or `-UserName <user> -UserDomain <domain>` | NTLM, Kerberos | Domain may be NetBIOS or FQDN. |
+| User name + NTLM hash (no domain) | `-UserName <user>` `-NtlmHash <hex>` | NTLM | Hash only — no colons. |
+| User name + NTLM hash (with domain) | `-UserName <domain>\<user>` `-NtlmHash <hex>` | NTLM, Kerberos (RC4-HMAC) | |
+| User name + AES 128 key | `-UserName <user>@<domain>` `-AesKey <hex>` | Kerberos (AES128) | Key length distinguishes AES128 from AES256. |
+| User name + AES 256 key | `-UserName <user>@<domain>` `-AesKey <hex>` | Kerberos (AES256) | |
+| TGT file + KDC | `-Tgt <file>` `-Kdc <endpoint>` | Kerberos | Titanis requests missing service tickets automatically. |
+| Ticket cache + KDC | `-TicketCache <file>` `-Kdc <endpoint>` | Kerberos | New tickets are added to the cache and reused. |
+| Service ticket file | `-Ticket <file>` | Kerberos | The SPN of the ticket must match what the command requires. |
+| Ticket cache (service tickets) | `-TicketCache <file>` | Kerberos | |
+| Certificate (.pfx) | `-UserCert <.pfx>` `-UserKeyPassword <pass>` | Kerberos (PKINIT) | `-UserKeyPassword` only required if the file is encrypted. |
+| Certificate (.pem with key) | `-UserCert <.pem>` `-UserKeyPassword <pass>` | Kerberos (PKINIT) | |
+| Certificate (.pem) + separate key | `-UserCert <.pem>` `-UserKey <.key>` `-UserKeyPassword <pass>` | Kerberos (PKINIT) | |
+
+## Anonymous authentication
+
+Pass `-Anonymous` to authenticate without credentials. Combined with `-vv` this is useful for enumerating the domain name and computer name that a server reports during the NTLM handshake.
+
+```bash
+Smb2Client ls \\TARGET -Anonymous -vv
+```
+
+## Password authentication
+
+```bash
+Smb2Client ls \\LUMON-FS1\C$ -UserName milchick -Password Br3@kr00m!
+```
+
+Include the domain to enable Kerberos in addition to NTLM:
+
+```bash
+Smb2Client ls \\LUMON-FS1\C$ -UserName milchick@LUMON.IND -Password Br3@kr00m! -Kdc 10.66.0.11
+```
+
+## Pass-the-hash
+
+Provide the NT hash as a hex string (no colons):
+
+```bash
+Smb2Client ls \\LUMON-FS1\C$ -UserName milchick -NtlmHash aad3b435b51404eeaad3b435b51404ee
+```
+
+## AES key authentication
+
+AES128 and AES256 are distinguished automatically by key length:
+
+```bash
+Kerb asreq milchick@LUMON.IND -Kdc 10.66.0.11 -AesKey <32-byte hex key> -OutputFileName milchick.kirbi
+```
+
+## Ticket-based authentication
+
+Titanis accepts both `.kirbi` and `.ccache` formats for all ticket file parameters — no conversion required.
+
+<AccordionGroup>
+  <Accordion title="-Tgt and -Kdc">
+    Provide a TGT file and a KDC address. Titanis requests any required service tickets automatically.
+
+    ```bash
+    Smb2Client ls \\LUMON-FS1\C$ -Tgt milchick-tgt.kirbi -Kdc 10.66.0.11
+    ```
+  </Accordion>
+
+  <Accordion title="-Ticket">
+    Provide a file containing the exact service ticket the command needs. The SPN of the ticket must match what the command requires. This file is never modified.
+
+    ```bash
+    Smb2Client ls \\LUMON-FS1\C$ -Ticket milchick-cifs.kirbi
+    ```
+  </Accordion>
+
+  <Accordion title="-TicketCache">
+    A managed ticket cache that Titanis both reads from and writes to. Requested tickets are added to the file and reused in subsequent commands. If the file does not exist, it is created. The format (kirbi or ccache) is detected from the existing file content regardless of extension; for new files the extension determines the format.
+
+    Set the `KRB5CCNAME` environment variable to have all commands use the same cache automatically.
+
+    ```bash
+    export KRB5CCNAME=milchick.ccache
+    Smb2Client ls \\LUMON-FS1\C$ -UserName milchick@LUMON.IND -Password Br3@kr00m! -Kdc 10.66.0.11
+    ```
+
+    If the cache contains tickets for multiple users, pass `-UserName` to filter which tickets are used.
+  </Accordion>
+
+  <Accordion title="-Kdc">
+    Address of the Key Distribution Center. Required when Titanis needs to contact a KDC to request tickets. For inter-realm referrals, Titanis resolves the next realm's KDC via DNS automatically.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  - Ticket files specified with `-Tgt` or `-Ticket` are **never modified**.
+  - A single file may contain both a TGT and service tickets; you can specify the same file for both `-Tgt` and `-Ticket`.
+  - Titanis skips tickets that are outside their validity period.
+  - If you specify a ticket file without a user name or realm, Titanis uses the first usable ticket it finds.
+</Note>
+
+## Certificate-based authentication (PKINIT)
+
+Use a certificate to perform Kerberos PKINIT pre-authentication. Titanis accepts `.pfx` and `.pem` formats.
+
+<Tabs>
+  <Tab title=".pfx (certificate + key)">
+    ```bash
+    Kerb asreq milchick@LUMON.IND -Kdc 10.66.0.11 \
+      -UserCert milchick.pfx -UserKeyPassword s3cr3t \
+      -OutputFileName milchick.kirbi
+    ```
+  </Tab>
+  <Tab title=".pem (certificate + key)">
+    ```bash
+    Kerb asreq milchick@LUMON.IND -Kdc 10.66.0.11 \
+      -UserCert milchick.pem -UserKeyPassword s3cr3t \
+      -OutputFileName milchick.kirbi
+    ```
+  </Tab>
+  <Tab title=".pem (certificate) + separate .key">
+    ```bash
+    Kerb asreq milchick@LUMON.IND -Kdc 10.66.0.11 \
+      -UserCert milchick.pem -UserKey milchick.key -UserKeyPassword s3cr3t \
+      -OutputFileName milchick.kirbi
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+`-UserKeyPassword` is only required when the certificate file is encrypted.
+</Note>
+
+## Other parameters
+
+| Parameter | Description |
+|---|---|
+| `-Workstation <name>` | Name reported as your workstation during authentication. Windows evaluates logon restrictions against this name and includes it in event log records. |
+| `-NtlmVersion <m.n.b.r>` | Version number to send in NTLM messages. |
+| `-UserDomain <domain>` | Domain to use when `-UserName` does not include one. |
+
+## Service for User (S4U)
+
+Titanis integrates S4U2self and S4U2proxy, letting a service account obtain a service ticket for — and impersonate — a user account without requiring that user's credentials.
+
+### S4U parameters
+
+| Parameter | Description | Notes |
+|---|---|---|
+| `-S4UserName <user>` | Name of the user to impersonate | If no domain is included, the service account's domain is assumed. |
+| `-S4UserCert <cert file>` | X.509 certificate identifying the user to impersonate | |
+| `-S4ProxyService <service>` | Service account to proxy through | May be `<class>/<host>` or just the account name. Presence of this parameter triggers S4U2proxy. |
+
+<Note>
+Specify either `-S4UserName` or `-S4UserCert` (or both — they must agree). The credentials you provide with `-UserName`, `-Password`, etc. are for the **service account**, not the user to impersonate.
+</Note>
+
+### S4U2self sequence
+
+<Steps>
+  <Step title="Request TGT for the service account">
+    Titanis requests a TGT for `-UserName` using the credential you specified (`-Password`, `-NtlmHash`, or `-AesKey`).
+  </Step>
+  <Step title="Request a service ticket for the command">
+    The TGT is used to request a service ticket to the service the command requires.
+  </Step>
+  <Step title="Obtain an impersonation ticket via S4U2self">
+    S4U2self is used to request a ticket for the user specified by `-S4UserName` or `-S4UserCert` to the service required by the command.
+  </Step>
+</Steps>
+
+### S4U2proxy sequence
+
+<Steps>
+  <Step title="Request TGT for the service account">
+    Titanis requests a TGT for `-UserName` using the specified credential.
+  </Step>
+  <Step title="Request a service ticket to the proxy service">
+    The TGT is used to request a service ticket to the service specified by `-S4ProxyService`.
+  </Step>
+  <Step title="Obtain an S4U2self ticket to the proxy service">
+    S4U2self is used to request a ticket for the user specified by `-S4User*` to `-S4ProxyService`.
+  </Step>
+  <Step title="Obtain the final ticket via S4U2proxy">
+    S4U2proxy is used to request a ticket for the user specified by `-S4User*` to the service required by the command.
+  </Step>
+</Steps>
+
+<Note>
+At each step, Titanis checks the ticket files in `-Tgt`, `-Ticket`, and `-TicketCache` first. If the desired ticket is already present, it is used and the KDC is not contacted for that step.
+</Note>
+
+### S4U2proxy example
+
+You have credentials for service account `allentown@LUMON` and want to access a file share as user `milchick`:
+
+```bash
+Smb2Client ls \\LUMON-FS1\C$ \
+  -UserName allentown@LUMON -Password password -Kdc 10.66.0.11 \
+  -S4UserName milchick -S4ProxyService host/allentown
+```
+
+This command:
+1. Requests a TGT for `allentown` (or retrieves one from the cache).
+2. Uses S4U2self to request a ticket for `milchick` to `host/allentown`.
+3. Uses S4U2proxy to request a ticket for `milchick` to `cifs/LUMON-FS1`.
+
+<Tip>
+To test any authentication scenario, use `Lsa whoami`. It prints the name of the user that authenticates to it and accepts all standard authentication parameters.
+</Tip>

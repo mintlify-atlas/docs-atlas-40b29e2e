@@ -1,0 +1,114 @@
+---
+title: "Command line syntax"
+description: "How Titanis tools parse command line arguments — parameter names, positional parameters, switches, lists, blobs, UNC paths, and parameter groups."
+---
+
+All Titanis tools share a common command line parser, so the rules you learn once apply everywhere. To view full documentation for any tool, run it with `-?`:
+
+```bash
+Kerb tgsreq -?
+```
+
+The help output starts with a **synopsis** showing the mandatory parameters, followed by a complete parameter list grouped by category. Placeholders in `<angle brackets>` show what type of value a parameter expects. A placeholder ending with `[]` means the parameter is a [list parameter](#list-parameters) that accepts multiple values.
+
+```
+SYNOPSIS
+  Kerb tgsreq [options] -Kdc <String> -Tgt <String> -OutputFileName <String> <ServicePrincipalName[]>
+```
+
+Parameters shown in the synopsis are **mandatory**. If you omit one, the tool prints the help text and reports the missing parameters instead of running.
+
+## Parameter names
+
+Every parameter has a name. Prefix the name with a dash on the command line. Provide the value after the name, separated by a space or a colon (`:`). Both forms are equivalent:
+
+```bash
+tool -UserName milchick
+tool -UserName:milchick
+```
+
+If a value contains spaces, quote it according to your shell's rules — double quotes on Windows, double quotes or backslash-escaping on Linux.
+
+## Positional parameters
+
+Some parameters can be specified by position, without naming them. Positional parameters must appear in the order shown in the synopsis. If the last positional parameter is a list parameter (marked with `[]`), every remaining value on the command line is assigned to it — meaning you cannot place named parameters after it, because the parser treats them as values instead.
+
+## Switch parameters
+
+A switch represents a boolean value (true/false). Specifying a switch without a value sets it to `true`. Most switches default to `false` when omitted.
+
+To explicitly set the value — useful when a switch defaults to `true`, or to document intent — append `:<value>`:
+
+```bash
+tool -Proxiable:false
+```
+
+## List parameters
+
+Parameters marked with `[]` in their placeholder accept multiple values. Separate values by following each one (except the last) with a trailing comma:
+
+```bash
+tool -Multi value1, value2, value3
+```
+
+The parser strips the trailing comma before assigning the value; the comma signals that more values follow.
+
+## HexString parameters
+
+Parameters with a `<HexString>` placeholder expect a plain hexadecimal string — no prefix, no separators. To pass the bytes `{ 0x01, 0x02, 0x03, 0x04 }`:
+
+```bash
+tool -HexStringParam 01020304
+```
+
+## Blob parameters
+
+Blob parameters accept binary data in one of three forms: a hex string, a Base64 string, or a file path. The prefix tells the parser which form you are using.
+
+<CodeGroup>
+
+```bash Hex string
+tool -BlobParam hex:41424344
+```
+
+```bash Base64 string
+tool -BlobParam b64:QUJDRA==
+```
+
+```bash File
+tool -BlobParam hash.bin
+```
+
+</CodeGroup>
+
+<Note>
+The Base64 parser accepts both standard (RFC 4648) and URL-safe variants, and does not require trailing `=` padding.
+</Note>
+
+## UncPath parameters
+
+Some commands accept a UNC path with the following structure:
+
+```
+\\<server>[:<port>][\<share>[\<path>]]
+```
+
+The server name or address is always required. It is used both at the network layer to connect and inside the application protocol to negotiate the session. If you are routing through a SOCKS proxy or similar, use the companion `-HostAddress` parameter to specify the network address to connect to while keeping the server name in the UNC path for the protocol.
+
+### Alternative forward-slash syntax
+
+Backslashes require escaping in most Linux shells, which produces awkward paths like `\\\\SERVER1\\Users\\milchick`. Titanis accepts forward slashes as an alternative:
+
+```bash
+//SERVER1/Users/milchick
+```
+
+The parser converts the forward slashes to backslashes automatically. This syntax works on Windows too, so you can use it everywhere for consistency.
+
+## Parameter groups
+
+Several cross-cutting concerns — authentication, logging, output — are implemented as shared **parameter groups** used by all tools. The parameters within a group have the same names and behavior across every command.
+
+- [Authentication parameters](/user-guide/authentication)
+- [Output parameters](/user-guide/output)
+- [Parameter defaults](/user-guide/param-defaults)

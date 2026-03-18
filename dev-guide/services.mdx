@@ -1,0 +1,122 @@
+---
+title: "Using services"
+description: "How Titanis components delegate network, name resolution, and credential operations to swappable service objects."
+---
+
+Rather than calling operating system APIs directly, several Titanis components delegate I/O and authentication operations to _service objects_. This design lets you substitute custom implementations — for example, to route traffic through a proxy, override DNS resolution, or supply credentials from a secrets manager — without modifying the protocol layer.
+
+All service interfaces and their default implementations live in `Titanis.Net`.
+
+## Service interfaces
+
+### `ISocketService`
+
+Provides network sockets to the protocol client. The protocol client calls this service whenever it needs to open a TCP connection to a remote host.
+
+This is the extension point you use to route traffic through a SOCKS5 proxy or a custom transport.
+
+### `INameResolver`
+
+Resolves a host name to one or more IP addresses. The protocol client calls this service before asking `ISocketService` to connect.
+
+This is the extension point you use to override DNS for a specific host, route through an alternative resolver, or supply static mappings.
+
+### `IClientCredentialService`
+
+Provides the authentication context used by the protocol client when the server challenges it. The protocol client calls this service with the service principal name (`spn`) and the capabilities the server advertised.
+
+This is the extension point you use to supply credentials from a vault, apply per-host credential policies, or intercept authentication for logging.
+
+## Built-in implementations
+
+### Socket service
+
+| Class | Description |
+|-------|-------------|
+| `PlatformSocketService` | Creates a `PlatformSocket` wrapping a standard .NET `Socket`. This is the default for all production use. |
+
+### Name resolvers
+
+| Class | Description |
+|-------|-------------|
+| `PlatformNameResolverService` | Forwards resolution requests to the operating system via `Dns.GetHostAddressesAsync`. Use this when you want normal DNS behavior. |
+| `DictionaryNameResolver` | Resolves names from a dictionary you populate at startup. Use this to hard-code IP addresses without a DNS lookup or to override specific hosts. |
+
+### Credential services
+
+| Class | Description |
+|-------|-------------|
+| `ClientCredentialDictionary` | Stores credential factories in a dictionary keyed by service principal name or a default factory applied to all connections. Use this to supply different credentials per target host. |
+
+## Example: hard-coding a server address
+
+The `DictionaryNameResolver` is useful when you know the IP address of your target and do not want to perform a DNS lookup:
+
+```csharp
+using System.Net;
+using Titanis.Net;
+
+var resolver = new DictionaryNameResolver();
+resolver.SetAddress("LUMON-FS1", new IPAddress[] { IPAddress.Parse("10.66.0.13") });
+
+var socketService = new PlatformSocketService(resolver, log);
+```
+
+## Example: per-host credentials
+
+`ClientCredentialDictionary` supports a `DefaultCredentialFactory` applied to all connections and individual factories keyed by service principal name:
+
+```csharp
+using Titanis.Net;
+using Titanis.Security.Ntlm;
+using Titanis.Security.Spnego;
+
+ClientCredentialDictionary credService = new ClientCredentialDictionary();
+
+// Default factory — used for any host not matched by a specific entry
+credService.DefaultCredentialFactory = (spn, caps) =>
+{
+    NtlmPasswordCredential cred = new NtlmPasswordCredential("user", "DOMAIN", "pass");
+    NtlmClientContext ntlm = new NtlmClientContext(cred, true);
+    ntlm.RequiredCapabilities |= caps;
+
+    SpnegoClientContext spnego = new SpnegoClientContext();
+    spnego.Contexts.Add(ntlm);
+    return spnego;
+};
+```
+
+## Implementing a custom service
+
+To inject custom behavior, implement the relevant interface and pass your implementation to the protocol client constructor. For example, to implement a custom socket service:
+
+```csharp
+using Titanis.Net;
+
+public class MySocketService : ISocketService
+{
+    // Return a socket connected to the given host and port,
+    // routing through your custom transport if needed.
+    public async Task<ISocket> ConnectAsync(
+        string host,
+        int port,
+        CancellationToken cancellationToken)
+    {
+        // Your custom connection logic here
+        throw new NotImplementedException();
+    }
+}
+```
+
+Pass the custom service to `Smb2Client` (or any other protocol client that accepts service parameters):
+
+```csharp
+Smb2Client client = new Smb2Client(
+    credService,
+    socketService: new MySocketService()
+);
+```
+
+<Tip>
+The built-in tools all accept a `-Socks5` parameter that routes TCP connections through a SOCKS5 proxy. This is implemented by substituting a SOCKS5-aware `ISocketService` at startup — the same extension point available to your own code.
+</Tip>

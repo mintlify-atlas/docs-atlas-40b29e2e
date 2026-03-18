@@ -1,0 +1,84 @@
+---
+title: "Tool output"
+description: "Control how Titanis tools format primary output and log messages — output styles, field selection, log levels, and log formats."
+---
+
+Titanis tools produce two separate streams:
+
+- **Primary output** — the results of the command, written to STDOUT.
+- **Log messages** — status and diagnostic information, written to STDERR.
+
+This separation means you can pipe or redirect primary output without mixing it with log noise.
+
+## Output styles
+
+Most commands print primary output as a sequence of records. Use `-OutputStyle` to choose how those records are formatted:
+
+| Style | Description |
+|---|---|
+| `Table` | Each record is printed as a row within a table. |
+| `List` | Each field of each record is printed on a separate line as `<field>: <value>`, with a blank line between records. |
+| `Csv` | Each record is printed as comma-separated values. |
+| `Tsv` | Each record is printed as tab-separated values. |
+| `Json` | Each record is printed as a JSON object within an array. |
+| `Raw` | Raw byte stream to STDOUT. Used by commands that deal with raw binary data. |
+
+```bash
+# Print results as JSON
+Kerb select -From milchick.kirbi -OutputStyle Json
+
+# Print as tab-separated values, suitable for scripting
+Smb2Client ls \\LUMON-FS1\C$ -UserName milchick@LUMON.IND -Password pass -OutputStyle Tsv
+```
+
+## Selecting output fields
+
+Use `-OutputFields` to specify which fields to include in the output. The available fields for each command are listed in its help text (`-?`).
+
+```bash
+Kerb select -From milchick.kirbi \
+  -OutputFields UserName, TargetSpn, StartTime, EndTime
+```
+
+<Note>
+Specifying certain fields may change the command's behavior. For example, requesting a field that requires additional data may cause the command to make an extra request to the server.
+</Note>
+
+## Logging
+
+During execution, tools write log messages to STDERR. Each message carries a severity level.
+
+### Log levels
+
+By default, only messages at `Info` level and above are printed. Use `-LogLevel` to change this threshold, or use the shorthand flags:
+
+| Flag | Equivalent | Description |
+|---|---|---|
+| *(none)* | `-LogLevel Info` | Info, Warning, and Error messages |
+| `-v` | `-LogLevel Verbose` | Adds verbose messages |
+| `-vv` | `-LogLevel Diagnostic` | Adds low-level diagnostic messages |
+
+```bash
+# Show diagnostic output for a Kerberos request
+Kerb asreq milchick@LUMON.IND 10.66.0.11 -Password Br3@kr00m! -vv -OutputFileName milchick.kirbi
+```
+
+### Log format
+
+Use `-LogFormat` to control the structure of log messages on the console:
+
+| Option | Description | Example |
+|---|---|---|
+| `Text` | Severity, category, and message text | `[Kerberos] DIAG: Requesting TGT for realm LUMON.IND for user milchick (nonce=-40593729)` |
+| `TextWithTimestamp` | Same as `Text` with an ISO-formatted timestamp prepended | `[2025-10-23T16:14:09.6977870Z][Kerberos] DIAG: Requesting TGT for realm LUMON.IND for user milchick (nonce=-40593729)` |
+| `Json` | Newline-delimited JSON objects | `{"Severity":"Diagnostic","SeverityValue":-200,"Source":"Kerberos","MessageId":0,"MessageText":"Requesting TGT for realm LUMON.IND...","Parameters":null}` |
+
+```bash
+# Use JSON log format for machine-parseable output
+Smb2Client ls \\LUMON-FS1\C$ -UserName milchick@LUMON.IND -Password pass \
+  -Kdc 10.66.0.11 -LogFormat Json 2>smb-log.json
+```
+
+<Tip>
+Set default log level and format globally using `TITANIS_DEFAULT_LOGLEVEL` and `TITANIS_DEFAULT_LOGFORMAT` environment variables so you don't have to repeat them on every command. See [Parameter defaults](/user-guide/param-defaults).
+</Tip>

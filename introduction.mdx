@@ -1,0 +1,131 @@
+---
+title: "Introduction"
+description: "Titanis is a cross-platform C# library and CLI toolkit implementing Windows network protocols for security research, penetration testing, and system administration."
+---
+
+## What is Titanis?
+
+Titanis is a library of protocol implementations and command-line utilities, written in C#, for interacting with Windows environments. Built on .NET 8, it runs on both Windows and Linux, providing a uniform experience across platforms.
+
+<CardGroup cols={2}>
+  <Card title="SMB2/3 Client" icon="server">
+    Full SMB 2.x and 3.x implementation with signing, encryption, DFS links, and filesystem control codes (MS-SMB2, MS-FSCC, MS-DFSC).
+  </Card>
+  <Card title="MSRPC & DCOM" icon="network-wired">
+    RPC endpoint mapper, DCOM, WMI, LSA, SAM, SCM, EFS, Remote Registry, and Server service interfaces.
+  </Card>
+  <Card title="Kerberos" icon="key">
+    Full Kerberos implementation with PKINIT, S4U2self/S4U2proxy, inter-realm referrals, ccache/kirbi ticket management, and multiple encryption profiles.
+  </Card>
+  <Card title="NTLM & SPNEGO" icon="shield">
+    NTLM authentication with pass-the-hash support. SP-NEGO negotiation wrapping both NTLM and Kerberos contexts.
+  </Card>
+  <Card title="LDAP" icon="database">
+    RFC 4511 LDAP client with SSL, channel binding, and Active Directory extensions (MS-ADTS).
+  </Card>
+  <Card title="SOCKS5 Proxy" icon="globe">
+    Integrated SOCKS5 proxy support (`-Socks5` parameter) for all network tools — route traffic through a pivot host.
+  </Card>
+</CardGroup>
+
+## Target Audience
+
+<CardGroup cols={3}>
+  <Card title="Security Researchers" icon="microscope">
+    Research how Windows reacts to various types of protocol requests. Inspect protocol behavior at a deep level.
+  </Card>
+  <Card title="Pentesters" icon="bug">
+    Perform actions and test whether mitigations are enabled and functioning properly. Full support for pass-the-hash, pass-the-ticket, Kerberoasting, and lateral movement.
+  </Card>
+  <Card title="System Administrators" icon="terminal">
+    Perform administrative tasks against Windows systems remotely from Linux or Windows without needing a domain-joined machine.
+  </Card>
+</CardGroup>
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Build from source" icon="hammer" href="/getting-started/building">
+    Build Titanis using `dotnet build` on Windows or Linux with .NET 8 SDK.
+  </Card>
+  <Card title="Installation" icon="download" href="/getting-started/installation">
+    Download pre-built binaries and set up Titanis for your operating system.
+  </Card>
+  <Card title="Command line syntax" icon="code" href="/user-guide/syntax">
+    Learn the uniform command line syntax shared by all Titanis tools.
+  </Card>
+  <Card title="Authentication" icon="lock" href="/user-guide/authentication">
+    Understand how to authenticate using passwords, NTLM hashes, AES keys, and Kerberos tickets.
+  </Card>
+</CardGroup>
+
+## Supported Protocols
+
+| Protocol | Specification | Notes |
+|----------|--------------|-------|
+| SMB2/3 | [MS-SMB2](https://winprotocoldocs-bhdugrdyduf5h2e4.b02.azurefd.net/MS-SMB2/%5bMS-SMB2%5d.pdf) | Versions 2.x and 3.x up to 3.1.1 |
+| MSRPC | [MS-RPCE](https://winprotocoldocs-bhdugrdyduf5h2e4.b02.azurefd.net/MS-RPCE/%5bMS-RPCE%5d.pdf) | Endpoint mapper, DCOM, named pipe transport |
+| LDAP | [RFC 4511](https://datatracker.ietf.org/doc/html/rfc4511) | With MS-ADTS extensions |
+| Kerberos | [RFC 4120](https://datatracker.ietf.org/doc/html/rfc4120), [MS-KILE](https://winprotocoldocs-bhdugrdyduf5h2e4.b02.azurefd.net/MS-KILE/%5bMS-KILE%5d.pdf) | PKINIT, S4U, inter-realm referrals |
+| NTLM | [MS-NLMP](https://winprotocoldocs-bhdugrdyduf5h2e4.b02.azurefd.net/MS-NLMP/%5bMS-NLMP%5d.pdf) | Pass-the-hash support |
+| SPNEGO | [MS-SPNG](https://winprotocoldocs-bhdugrdyduf5h2e4.b02.azurefd.net/MS-SPNG/%5bMS-SPNG%5d.pdf) | Automatic negotiation |
+| SOCKS5 | [RFC 1928](https://datatracker.ietf.org/doc/html/rfc1928) | All tools support proxy routing |
+
+## Tool Suite
+
+Titanis ships a set of standalone command-line tools as pre-built binaries for both Windows and Linux.
+
+<CardGroup cols={2}>
+  <Card title="Kerb" icon="ticket" href="/tools/kerb">
+    Kerberos ticket management: request TGTs, TGS tickets, renew tickets, manage ticket files.
+  </Card>
+  <Card title="Smb2Client" icon="folder" href="/tools/smb2client">
+    SMB filesystem operations: list, get, put, delete, watch, enumerate shares, sessions, and snapshots.
+  </Card>
+  <Card title="Wmi" icon="computer" href="/tools/wmi">
+    WMI query, method invocation, remote command execution, and repository management.
+  </Card>
+  <Card title="Lsa" icon="user-shield" href="/tools/lsa">
+    LSA policy: enumerate accounts, manage privileges, look up SIDs and account names.
+  </Card>
+  <Card title="Sam" icon="users" href="/tools/sam">
+    Security Accounts Manager: enumerate users in the SAM database.
+  </Card>
+  <Card title="Scm" icon="cogs" href="/tools/scm">
+    Service Control Manager: create, start, stop, query, and delete Windows services.
+  </Card>
+  <Card title="Epm" icon="map" href="/tools/epm">
+    RPC endpoint mapper: enumerate dynamic RPC endpoints registered on a system.
+  </Card>
+  <Card title="Ldap" icon="sitemap" href="/tools/ldap">
+    LDAP queries against Active Directory with full filter and attribute support.
+  </Card>
+  <Card title="Reg" icon="registry" href="/tools/reg">
+    Remote Registry access including backup semantics and SAM database dump.
+  </Card>
+  <Card title="CredCoerce" icon="magnet" href="/tools/credcoerce">
+    Coerce a Windows system to authenticate to a remote target via RPC callbacks.
+  </Card>
+  <Card title="Dcom" icon="plug" href="/tools/dcom">
+    Activate and invoke methods on remote DCOM automation objects.
+  </Card>
+  <Card title="Sddl" icon="file-shield" href="/tools/sddl">
+    Parse and describe SDDL security descriptor strings.
+  </Card>
+</CardGroup>
+
+## Project Layout
+
+```
+Titanis/
+├── src/           # Protocol library source code
+│   ├── base/      # Utilities used by other components
+│   ├── crypto/    # Cryptographic algorithm implementations
+│   ├── formats/   # ASN.1 and other format parsers
+│   ├── net/       # Network protocol implementations (SMB2, LDAP, RPC)
+│   └── security/  # Security protocols (NTLM, Kerberos, SPNEGO)
+├── tools/         # Standalone CLI tools
+├── samples/       # Sample code demonstrating library usage
+├── test/          # Unit tests
+└── doc/           # Documentation sources
+```

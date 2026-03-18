@@ -1,0 +1,165 @@
+---
+title: "Tool Reference"
+description: "Complete reference for all Titanis CLI tools, organized by command name and task category."
+---
+
+Titanis provides a suite of CLI tools for interacting with Windows network protocols. Each tool accepts a subcommand. Run `<Tool> <subcommand> -h` for help on any specific subcommand.
+
+## Tools by category
+
+<CardGroup cols={2}>
+  <Card title="Kerb" icon="key" href="/tools/kerb">
+    Kerberos authentication — request TGTs and service tickets, change passwords, renew tickets, generate protocol keys, and inspect ticket files.
+  </Card>
+  <Card title="Smb2Client" icon="folder" href="/tools/smb2client">
+    SMB2 file operations — list, get, put, delete, watch, create directories and links, enumerate shares, sessions, open files, and snapshots.
+  </Card>
+  <Card title="Wmi" icon="terminal" href="/tools/wmi">
+    Windows Management Instrumentation — query objects, invoke methods, execute commands, enumerate namespaces/classes/properties/methods, backup and restore the repository.
+  </Card>
+  <Card title="Lsa" icon="shield" href="/tools/lsa">
+    Local Security Authority — look up names and SIDs, enumerate accounts, get and set privileges and system access rights.
+  </Card>
+  <Card title="Sam" icon="users" href="/tools/sam">
+    Security Accounts Manager — enumerate users, groups, and aliases from a remote SAM database.
+  </Card>
+  <Card title="Scm" icon="cog" href="/tools/scm">
+    Service Control Manager — query, create, start, stop, and delete services on a remote Windows system.
+  </Card>
+  <Card title="Epm" icon="network" href="/tools/epm">
+    RPC Endpoint Mapper — list dynamic RPC endpoints registered with the endpoint mapper on a remote system.
+  </Card>
+  <Card title="CredCoerce" icon="arrow-right" href="/tools/credcoerce">
+    Credential coercion — send RPC calls that cause a target system to authenticate to an attacker-controlled listener.
+  </Card>
+</CardGroup>
+
+---
+
+## Tools by name
+
+| Command | Description |
+|---|---|
+| [CredCoerce](/tools/credcoerce) | Send RPC calls to coerce a system to authenticate to a remote system |
+| [Epm](/tools/epm) | Commands for interacting with the RPC endpoint mapper |
+| [Epm lsep](/tools/epm#lsep) | List the dynamic RPC endpoints registered with the endpoint mapper |
+| [Kerb](/tools/kerb) | Commands for working with Kerberos authentication |
+| [Kerb asreq](/tools/kerb#asreq) | Request a TGT from the KDC |
+| [Kerb changepw](/tools/kerb#changepw) | Change an account password |
+| [Kerb getasinfo](/tools/kerb#getasinfo) | Get server time and encryption types for a user account |
+| [Kerb renew](/tools/kerb#renew) | Renew a ticket |
+| [Kerb s2k](/tools/kerb#s2k) | Generate a protocol key from a string such as a password |
+| [Kerb select](/tools/kerb#select) | Select and display tickets from a file |
+| [Kerb setpw](/tools/kerb#setpw) | Set the password of another account |
+| [Kerb tgsreq](/tools/kerb#tgsreq) | Request a ticket from the KDC |
+| [Lsa](/tools/lsa) | Commands for interacting with the LSA |
+| [Lsa addpriv](/tools/lsa#addpriv) | Add one or more privileges to an account |
+| [Lsa createaccount](/tools/lsa#createaccount) | Create an LSA policy account |
+| [Lsa enumaccounts](/tools/lsa#enumaccounts) | Enumerate accounts |
+| [Lsa enumprivaccounts](/tools/lsa#enumprivaccounts) | Enumerate accounts that have a specific privilege or user right |
+| [Lsa getprivs](/tools/lsa#getprivs) | Get the privileges assigned to an account |
+| [Lsa getrights](/tools/lsa#getrights) | Get user rights and privileges granted to an account |
+| [Lsa getsysaccess](/tools/lsa#getsysaccess) | Get system access rights granted to an account |
+| [Lsa lookupname](/tools/lsa#lookupname) | Get the SID for one or more account names |
+| [Lsa lookupsid](/tools/lsa#lookupsid) | Translate one or more SIDs to their account names |
+| [Lsa rmpriv](/tools/lsa#rmpriv) | Remove one or more privileges from an account |
+| [Lsa setsysaccess](/tools/lsa#setsysaccess) | Set the system access rights granted to an account |
+| [Lsa whoami](/tools/lsa#whoami) | Get the name and domain of the connected user |
+| [Sam](/tools/sam) | Commands for interacting with a remote Security Accounts Manager |
+| [Sam enumusers](/tools/sam#enumusers) | Enumerate user accounts |
+| [Scm](/tools/scm) | Interact with the service control manager on a remote Windows system |
+| [Scm create](/tools/scm#create) | Create and optionally start a new service |
+| [Scm delete](/tools/scm#delete) | Delete a service |
+| [Scm qtriggers](/tools/scm#qtriggers) | Query triggers configured to start or stop a service |
+| [Scm query](/tools/scm#query) | Query the status of services |
+| [Scm start](/tools/scm#start) | Start a service |
+| [Scm stop](/tools/scm#stop) | Stop a service |
+| [Smb2Client](/tools/smb2client) | Perform operations on an SMB2 server |
+| [Smb2Client enumnics](/tools/smb2client#enumnics) | Query the server for a list of network interfaces |
+| [Smb2Client enumopenfiles](/tools/smb2client#enumopenfiles) | List files open on the server |
+| [Smb2Client enumsessions](/tools/smb2client#enumsessions) | List active sessions on the server |
+| [Smb2Client enumshares](/tools/smb2client#enumshares) | List shares on the server |
+| [Smb2Client enumsnapshots](/tools/smb2client#enumsnapshots) | List available snapshots for a file or directory |
+| [Smb2Client enumstreams](/tools/smb2client#enumstreams) | List data streams of a file or directory |
+| [Smb2Client get](/tools/smb2client#get) | Get the contents of a file |
+| [Smb2Client ls](/tools/smb2client#ls) | List the contents of a directory |
+| [Smb2Client mkdir](/tools/smb2client#mkdir) | Create a directory |
+| [Smb2Client mklink](/tools/smb2client#mklink) | Create a symbolic link |
+| [Smb2Client mount](/tools/smb2client#mount) | Create a mount point or junction |
+| [Smb2Client put](/tools/smb2client#put) | Send a file to the server |
+| [Smb2Client rm](/tools/smb2client#rm) | Delete a file |
+| [Smb2Client rmdir](/tools/smb2client#rmdir) | Delete a directory |
+| [Smb2Client touch](/tools/smb2client#touch) | Update timestamps or attributes of a file or directory |
+| [Smb2Client umount](/tools/smb2client#umount) | Unmount a mount point |
+| [Smb2Client watch](/tools/smb2client#watch) | Watch for modifications to a directory or subtree |
+| [Wmi](/tools/wmi) | Commands for interacting with the Windows Management Instrumentation service |
+| [Wmi backup](/tools/wmi#backup) | Back up the WMI repository |
+| [Wmi delete](/tools/wmi#delete) | Delete a WMI object |
+| [Wmi exec](/tools/wmi#exec) | Execute a command on a remote system via WMI |
+| [Wmi get](/tools/wmi#get) | Get an object with a WMI path |
+| [Wmi invoke](/tools/wmi#invoke) | Invoke a method on a WMI class or object |
+| [Wmi lsclass](/tools/wmi#lsclass) | List the classes within a namespace |
+| [Wmi lsmethod](/tools/wmi#lsmethod) | List the methods of a class or object |
+| [Wmi lsns](/tools/wmi#lsns) | List the available namespaces within a namespace |
+| [Wmi lsprop](/tools/wmi#lsprop) | List the properties of a class or object |
+| [Wmi query](/tools/wmi#query) | Execute a WMI query |
+| [Wmi restore](/tools/wmi#restore) | Restore the WMI repository |
+
+---
+
+## Tools by task
+
+| Task | Command |
+|---|---|
+| **Credential coercion** | |
+| Coerce a system to authenticate to a remote target | [CredCoerce](/tools/credcoerce) |
+| **Enumeration** | |
+| Check whether a user name is valid | [Kerb getasinfo](/tools/kerb#getasinfo), [Kerb asreq](/tools/kerb#asreq) |
+| Enumerate policy accounts | [Lsa enumaccounts](/tools/lsa#enumaccounts) |
+| Enumerate the accounts in the SAM database | [Sam enumusers](/tools/sam#enumusers) |
+| Enumerate the data streams of a file on an SMB server | [Smb2Client enumstreams](/tools/smb2client#enumstreams) |
+| Enumerate the network interfaces of an SMB server | [Smb2Client enumnics](/tools/smb2client#enumnics) |
+| Enumerate the open files on an SMB server | [Smb2Client enumopenfiles](/tools/smb2client#enumopenfiles) |
+| Enumerate the privileges granted to an account | [Lsa getprivs](/tools/lsa#getprivs) |
+| Enumerate the rights and privileges granted to an account | [Lsa getrights](/tools/lsa#getrights) |
+| Enumerate the sessions of users connected to an SMB server | [Smb2Client enumsessions](/tools/smb2client#enumsessions) |
+| Enumerate the shares of an SMB server | [Smb2Client enumshares](/tools/smb2client#enumshares) |
+| Enumerate the system access rights granted to an account | [Lsa getsysaccess](/tools/lsa#getsysaccess) |
+| Enumerate the volume snapshots on an SMB server | [Smb2Client enumsnapshots](/tools/smb2client#enumsnapshots) |
+| Enumerate dynamic RPC endpoints | [Epm lsep](/tools/epm#lsep) |
+| Execute a WMI query | [Wmi query](/tools/wmi#query) |
+| Get a WMI object | [Wmi get](/tools/wmi#get) |
+| List WMI classes, methods, namespaces, or properties | [Wmi lsclass](/tools/wmi#lsclass), [Wmi lsmethod](/tools/wmi#lsmethod), [Wmi lsns](/tools/wmi#lsns), [Wmi lsprop](/tools/wmi#lsprop) |
+| Query the status of a service | [Scm query](/tools/scm#query) |
+| Query the triggers for a service | [Scm qtriggers](/tools/scm#qtriggers) |
+| Translate a SID to its account name | [Lsa lookupsid](/tools/lsa#lookupsid) |
+| Translate an account name to its SID | [Lsa lookupname](/tools/lsa#lookupname) |
+| **Kerberos** | |
+| Change a password | [Kerb changepw](/tools/kerb#changepw) |
+| Convert between .ccache and .kirbi files | [Kerb select](/tools/kerb#select) |
+| Generate a protocol key from a password | [Kerb s2k](/tools/kerb#s2k) |
+| Get a Kerberoastable ticket hash | [Kerb tgsreq](/tools/kerb#tgsreq) |
+| Renew a ticket | [Kerb renew](/tools/kerb#renew) |
+| Request a ticket for a service | [Kerb tgsreq](/tools/kerb#tgsreq) |
+| Request a ticket-granting ticket | [Kerb asreq](/tools/kerb#asreq) |
+| Set the password of another user account | [Kerb setpw](/tools/kerb#setpw) |
+| **Lateral movement** | |
+| Create a service | [Scm create](/tools/scm#create) |
+| Execute a command line on a remote system | [Wmi exec](/tools/wmi#exec) |
+| Invoke a method on a WMI object | [Wmi invoke](/tools/wmi#invoke) |
+| Start a service | [Scm start](/tools/scm#start) |
+| **SMB** | |
+| Create a directory on an SMB share | [Smb2Client mkdir](/tools/smb2client#mkdir) |
+| Create a filesystem link on an SMB share | [Smb2Client mklink](/tools/smb2client#mklink) |
+| Create a mount point or junction on an SMB share | [Smb2Client mount](/tools/smb2client#mount) |
+| Delete a directory on an SMB share | [Smb2Client rmdir](/tools/smb2client#rmdir) |
+| Delete a file on an SMB share | [Smb2Client rm](/tools/smb2client#rm) |
+| Get a file from an SMB server | [Smb2Client get](/tools/smb2client#get) |
+| List the contents of a directory on an SMB share | [Smb2Client ls](/tools/smb2client#ls) |
+| Timestomp a file on an SMB share | [Smb2Client touch](/tools/smb2client#touch) |
+| Upload a file to an SMB share | [Smb2Client put](/tools/smb2client#put) |
+| Watch a directory on an SMB server for changes | [Smb2Client watch](/tools/smb2client#watch) |
+| **WMI** | |
+| Back up the WMI MOF repository | [Wmi backup](/tools/wmi#backup) |
+| Delete a WMI object | [Wmi delete](/tools/wmi#delete) |
+| Restore the WMI MOF repository | [Wmi restore](/tools/wmi#restore) |

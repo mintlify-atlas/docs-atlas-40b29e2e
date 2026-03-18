@@ -1,0 +1,346 @@
+---
+title: "Building a CLI utility"
+description: "How to build a new command-line tool using the Titanis.Cli framework, including typed parameters, validation, switch flags, and parameter groups."
+---
+
+`Titanis.Cli` provides a framework for building command-line tools with a consistent interface. It handles argument parsing, type conversion, help text generation, and CTRL+C cancellation so that you can focus on the logic of your tool.
+
+The `CommandSample` project in `samples/CommandSample/` is the reference implementation for everything on this page.
+
+## Getting started
+
+<Steps>
+  <Step title="Create a console project">
+    ```bash
+    dotnet new console -n MyTool
+    cd MyTool
+    ```
+  </Step>
+
+  <Step title="Add a reference to Titanis.Cli">
+    ```xml MyTool.csproj
+    <ItemGroup>
+      <PackageReference Include="Titanis.Cli" Version="0.9.0" />
+    </ItemGroup>
+    ```
+  </Step>
+
+  <Step title="Inherit from Command">
+    Make `Program` inherit `Titanis.Cli.Command` and change `Main` to delegate to `RunProgramAsync`:
+
+    ```csharp Program.cs
+    using Titanis.Cli;
+
+    [Command(HelpText = "My tool description")]
+    internal class Program : Command
+    {
+        static int Main(string[] args)
+            => RunProgramAsync<Program>(args);
+
+        protected async sealed override Task<int> RunAsync(CancellationToken cancellationToken)
+        {
+            this.WriteMessage("Hello, world!");
+            return 0;
+        }
+    }
+    ```
+
+    `RunProgramAsync` instantiates `Program`, hooks CTRL+C, validates parameters, and calls `RunAsync`. The return value of `RunAsync` becomes the process exit code.
+  </Step>
+</Steps>
+
+## Parameters
+
+Declare typed properties on your command class and annotate them with `[Parameter]`:
+
+```csharp
+[Parameter(10)]
+[Mandatory]
+[Category(ParameterCategories.Output)]
+[Description("Message to print")]
+public string Message { get; set; }
+
+[Parameter]
+[Category(ParameterCategories.Output)]
+[Description("Number of times to print the message")]
+[DefaultValue(1)]
+public int Count { get; set; }
+```
+
+The integer passed to `[Parameter]` sets the positional order. Parameters without a position value must be specified by name on the command line. `[Mandatory]` causes the framework to abort with an error if the parameter is omitted.
+
+Parameters can be specified by full name, any unambiguous prefix, or by position:
+
+```bash
+# All equivalent for the Message parameter
+mytool "The work is mysterious and important"
+mytool -message "The work is mysterious and important"
+mytool -m "The work is mysterious and important"
+mytool -m:"The work is mysterious and important"
+```
+
+### Built-in parameter types
+
+The framework includes converters for these types with no additional configuration:
+
+- `string`, `char`
+- `bool`
+- Integral types: `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`
+- Floating-point types: `float`, `double`, `decimal`
+- `DateTime`
+- `Enum` types
+
+Integer values accept decimal, hexadecimal (`0x`), and binary (`0b`) prefixes. Binary values may include underscores for readability:
+
+```bash
+mytool -c 0x05
+mytool -c 0b0101_1011
+```
+
+### Switch parameters
+
+A `SwitchParam` is a flag — specifying the name alone on the command line is sufficient to set it:
+
+```csharp
+[Parameter]
+[Description("Loops continuously")]
+public SwitchParam Loop { get; set; }
+```
+
+```bash
+mytool "Hello" -Loop          # IsSet = true
+mytool "Hello" -Loop:true     # IsSet = true
+mytool "Hello" -Loop:false    # IsSet = false, IsSpecified = true
+```
+
+Use `Loop.IsSet` in your `RunAsync` to read the value:
+
+```csharp
+if (this.Loop.IsSet)
+    this.WriteWarning("Running in loop mode.  Press CTRL+C to end.");
+```
+
+### Array parameters
+
+Declare the property as an array to accept multiple values. The parser collects values until it encounters one that does not end with a comma:
+
+```csharp
+[Parameter]
+public string[] MultiString { get; set; }
+```
+
+```bash
+mytool -MultiString first, second, third
+```
+
+### Blob parameters
+
+`Blob` accepts raw bytes provided as a file path, a Base64-encoded string (prefixed with `b64:` or `base64:`), or a hex-encoded string (prefixed with `hex:`):
+
+```csharp
+[Parameter]
+public Blob Payload { get; set; }
+```
+
+```bash
+mytool -Payload /path/to/file
+mytool -Payload b64:SGVsbG8gV29ybGQ=
+mytool -Payload hex:48656c6c6f
+```
+
+## Parameter validation
+
+Override `ValidateParameters` to add custom validation after the framework parses and sets all parameters:
+
+```csharp
+protected sealed override void ValidateParameters(ParameterValidationContext context)
+{
+    base.ValidateParameters(context);
+
+    if (this.Count < 0)
+        context.LogError(new ParameterValidationError(nameof(Count), "The value must be positive."));
+}
+```
+
+If at least one error is logged, the framework prints the errors and aborts without calling `RunAsync`.
+
+## Cancellation
+
+`RunAsync` receives a `CancellationToken` that is cancelled when the user presses CTRL+C. Use it to exit cleanly from loops:
+
+```csharp
+protected async sealed override Task<int> RunAsync(CancellationToken cancellationToken)
+{
+    do
+    {
+        for (int i = 0; i < this.Count; i++)
+            this.WriteMessage(this.Message);
+    } while (this.Loop.IsSet && !cancellationToken.IsCancellationRequested);
+
+    return 0;
+}
+```
+
+## Custom parameter types
+
+Annotate a custom type with `[TypeConverter]` to teach the framework how to convert a command-line string to that type:
+
+```csharp
+[TypeConverter(typeof(DurationConverter))]
+internal class Duration
+{
+    public Duration(TimeSpan timeSpan) => this.TimeSpan = timeSpan;
+    public TimeSpan TimeSpan { get; }
+}
+
+class DurationConverter : TypeConverter
+{
+    public sealed override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType)
+        => sourceType == typeof(string);
+
+    public sealed override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
+    {
+        if (value is string str)
+        {
+            int mult = str.EndsWith('s') ? 1
+                     : str.EndsWith('m') ? 60
+                     : str.EndsWith('h') ? 3600
+                     : 0;
+
+            if (mult == 0)
+                throw new FormatException($"The value '{str}' does not indicate the unit of time.");
+
+            double amount = double.Parse(str.Substring(0, str.Length - 1));
+            return new Duration(TimeSpan.FromSeconds(amount * mult));
+        }
+
+        return base.ConvertFrom(context, culture, value);
+    }
+}
+```
+
+Use the custom type as a parameter:
+
+```csharp
+[Parameter]
+[Description("Duration to run the loop")]
+public Duration? Duration { get; set; }
+```
+
+You can provide a default value as a string, and the framework will convert it using the same `TypeConverter`:
+
+```csharp
+[DefaultValue("5s")]
+public Duration? Duration { get; set; }
+```
+
+## Parameter groups
+
+For larger tools, group related parameters into a separate class instead of declaring everything on the command class. This also makes groups reusable across multiple commands.
+
+```csharp TimeParameters.cs
+internal class TimeParameters : ParameterGroupBase
+{
+    [Parameter]
+    [Description("Duration to run the loop")]
+    [DefaultValue("5s")]
+    public Duration? Duration { get; set; }
+}
+```
+
+Reference the group from the command class with `[ParameterGroup]`:
+
+```csharp Program.cs
+[ParameterGroup]
+public TimeParameters? TimeParams { get; set; }
+```
+
+If no parameters in the group are provided on the command line, `TimeParams` is `null`. If any are provided, the framework instantiates the group and sets the appropriate property. Groups may be nested.
+
+## Complete example
+
+The following is the `CommandSample` project, which demonstrates all of the features above:
+
+<CodeGroup>
+
+```csharp Program.cs
+using System.ComponentModel;
+using Titanis.Cli;
+
+namespace CommandSample
+{
+    [Command(HelpText = "Sample command implementation")]
+    internal class Program : Command
+    {
+        static int Main(string[] args)
+            => RunProgramAsync<Program>(args);
+
+        [Parameter(10)]
+        [Mandatory]
+        [Category(ParameterCategories.Output)]
+        [Description("Message to print")]
+        public string Message { get; set; }
+
+        [Parameter]
+        [Category(ParameterCategories.Output)]
+        [Description("Number of times to print the message")]
+        [DefaultValue(1)]
+        public int Count { get; set; }
+
+        [Parameter]
+        [Description("Loops continuously")]
+        public SwitchParam Loop { get; set; }
+
+        [ParameterGroup]
+        public TimeParameters? TimeParams { get; set; }
+
+        protected sealed override void ValidateParameters(ParameterValidationContext context)
+        {
+            base.ValidateParameters(context);
+
+            if (this.Count < 0)
+                context.LogError(new ParameterValidationError(nameof(Count), "The value must be positive."));
+        }
+
+        protected async sealed override Task<int> RunAsync(CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+
+            if (this.Loop.IsSet)
+                this.WriteWarning("Running in loop mode.  Press CTRL+C to end.");
+
+            DateTime stopTime = DateTime.MaxValue;
+            if (this.TimeParams?.Duration != null)
+                stopTime = DateTime.Now + this.TimeParams.Duration.TimeSpan;
+
+            do
+            {
+                if (DateTime.Now >= stopTime)
+                    break;
+
+                for (int i = 0; i < this.Count; i++)
+                    this.WriteMessage(this.Message);
+            } while (this.Loop.IsSet && !cancellationToken.IsCancellationRequested);
+
+            return 0;
+        }
+    }
+}
+```
+
+```csharp TimeParameters.cs
+using Titanis.Cli;
+
+namespace CommandSample
+{
+    internal class TimeParameters : ParameterGroupBase
+    {
+        [Parameter]
+        [Description("Duration to run the loop")]
+        [DefaultValue("5s")]
+        public Duration? Duration { get; set; }
+    }
+}
+```
+
+</CodeGroup>

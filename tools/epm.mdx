@@ -1,0 +1,121 @@
+---
+title: "Epm"
+description: "List the dynamic RPC endpoints registered with the endpoint mapper on a remote Windows system."
+---
+
+The `Epm` tool connects to the RPC Endpoint Mapper on a remote system and lists the dynamic endpoints registered with it. This is useful for discovering which RPC services are running and on which ports or named pipes they are listening.
+
+<Note>
+Endpoint mapper queries are typically unauthenticated. This is distinct from anonymous authentication — no security context is established.
+</Note>
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [lsep](#lsep) | List dynamic RPC endpoints registered with the endpoint mapper |
+
+<Note>
+For help on any subcommand, run `Epm <subcommand> -h`.
+</Note>
+
+---
+
+## lsep
+
+Queries the RPC Endpoint Mapper and lists the registered dynamic endpoints. You can filter results by interface ID, version, object GUID, or major version number.
+
+```bash
+Epm lsep [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Filter options">
+    <ParamField path="-InterfaceId (-I)" type="Guid">
+      Filter for a specific interface ID (GUID).
+    </ParamField>
+    <ParamField path="-MajorVersion (-M)" type="UInt16">
+      Filter by major version number.
+    </ParamField>
+    <ParamField path="-ExactVersion" type="RpcVersion">
+      Filter for an exact interface version.
+    </ParamField>
+    <ParamField path="-CompatVersion" type="RpcVersion">
+      Filter for a compatible interface version.
+    </ParamField>
+    <ParamField path="-UpToVersion" type="RpcVersion">
+      Filter for interfaces up to a maximum version.
+    </ParamField>
+    <ParamField path="-ObjectId" type="Guid">
+      Filter for a specific object ID.
+    </ParamField>
+    <ParamField path="-PageSize" type="integer">
+      Number of results to fetch at a time.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `ObjectGuid`, `annotation`, `Tower`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication">
+    <ParamField path="-UserName (-u)" type="UserPrincipalName">
+      User name to authenticate with (not including the domain).
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password to authenticate with.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="hexadecimal hash">
+      NTLM hash for pass-the-hash authentication.
+    </ParamField>
+    <ParamField path="-Kdc (-K)" type="host:port">
+      KDC endpoint for Kerberos.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      Path to a TGT file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-EncryptRpc" type="boolean">
+      Encrypt RPC messages.
+    </ParamField>
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Override network address(es) of the server.
+    </ParamField>
+    <ParamField path="-Socks5" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# List all registered endpoints
+Epm lsep LUMON-DC1
+
+# List endpoints for a specific interface
+Epm lsep LUMON-DC1 -InterfaceId 12345678-1234-abcd-ef01-0123456789ab
+
+# Filter by major version and output as JSON
+Epm lsep LUMON-DC1 -MajorVersion 1 -OutputStyle Json
+
+# Authenticate with credentials
+Epm lsep LUMON-DC1 -UserName milchick -Password Br3@kr00m! -EncryptRpc
+```
+
+---
+
+## Related tools
+
+- [Scm](/tools/scm) — manage services on remote Windows systems
+- [Wmi](/tools/wmi) — interact with WMI over RPC

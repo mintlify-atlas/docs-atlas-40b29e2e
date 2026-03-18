@@ -1,0 +1,52 @@
+---
+title: "Versioning"
+description: "How Titanis manages assembly versions, file versions, and central package management across all projects."
+---
+
+## Assembly version vs. file version
+
+Titanis assemblies use a two-part assembly version (`major.minor`) and a four-part file version (`major.minor.build.revision`).
+
+**Assembly version** (`major.minor`)
+- Changes only when there is a public API modification that affects assembly binding.
+- Stable between patch releases so that applications referencing Titanis do not need to be recompiled for hotfixes.
+
+**File version** (`major.minor.build.revision`)
+- Uses all four components.
+- The `build` component is incremented by the CI pipeline on every build and does not reset when `major` or `minor` changes.
+- The `revision` component defaults to `0` in pipeline builds. A developer preparing a hotfix may increment it manually.
+
+## Central package management
+
+All projects under `src/` use [MSBuild central package management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management). Package versions are defined once in `src/Directory.Packages.props` rather than in each individual `.csproj` file.
+
+Titanis packages reference a shared `$(TitanisVersion)` MSBuild property:
+
+```xml Directory.Packages.props
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <TitanisVersion>0.9.0</TitanisVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Titanis.Core" Version="$(TitanisVersion)" />
+    <PackageVersion Include="Titanis.IO" Version="$(TitanisVersion)" />
+    <PackageVersion Include="Titanis.Net" Version="$(TitanisVersion)" />
+    <PackageVersion Include="Titanis.Security" Version="$(TitanisVersion)" />
+    <PackageVersion Include="Titanis.Security.Ntlm" Version="$(TitanisVersion)" />
+    <!-- ... other Titanis packages ... -->
+  </ItemGroup>
+</Project>
+```
+
+To update all Titanis packages to a new version, change the single `<TitanisVersion>` value in `Directory.Packages.props`. Every project under `src/` inherits the new version automatically.
+
+<Note>
+Third-party packages (for example, `Microsoft.CodeAnalysis.CSharp` or `System.Memory`) are also versioned in `Directory.Packages.props` but use explicit version strings rather than `$(TitanisVersion)`.
+</Note>
+
+## Signing
+
+In the `Release` build configuration, `src/Directory.Build.props` looks for a strong-name key file named `Titanis.snk` in the same directory as `Titanis.sln`. If the key file is present, all libraries under `src/` are signed with it. If it is absent, the build completes without signing and no error is reported.
+
+Development and Debug builds are not signed, regardless of whether the key file is present.

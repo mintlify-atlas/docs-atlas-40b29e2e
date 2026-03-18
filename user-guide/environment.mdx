@@ -1,0 +1,69 @@
+---
+title: "Environment setup"
+description: "Recommended environment configuration for Titanis — global defaults, per-identity credential files, and Kerberos ticket cache management."
+---
+
+Titanis does not require any particular environment setup, but the recommendations below will streamline day-to-day operation.
+
+## Global defaults
+
+Set global defaults in your shell's profile file (e.g., `~/.bashrc`, `~/.zshrc`, or `$PROFILE` on PowerShell) using `TITANIS_DEFAULT_*` environment variables. These are picked up by every Titanis command automatically.
+
+Variables worth setting globally:
+
+```bash
+# ~/.bashrc or ~/.zshrc
+export TITANIS_DEFAULT_LOGLEVEL=info
+export TITANIS_DEFAULT_LOGFORMAT=Text
+export TITANIS_DEFAULT_WORKSTATION=MY-WORKSTATION
+export TITANIS_DEFAULT_KDC=10.66.0.11
+export TITANIS_DEFAULT_REALM=LUMON.IND
+```
+
+| Variable | Description |
+|---|---|
+| `TITANIS_DEFAULT_LOGLEVEL` | Log verbosity for all commands |
+| `TITANIS_DEFAULT_LOGFORMAT` | Log output format (Text, TextWithTimestamp, Json) |
+| `TITANIS_DEFAULT_WORKSTATION` | Workstation name sent during NTLM and Kerberos authentication |
+| `TITANIS_DEFAULT_KDC` | KDC address used when requesting Kerberos tickets |
+| `TITANIS_DEFAULT_REALM` | Default Kerberos realm |
+
+See [Parameter defaults](/user-guide/param-defaults) for the full list of supported variables.
+
+## Managing credentials
+
+For Kerberos, Titanis works best when you maintain **one ticket cache file per identity**. Point `KRB5CCNAME` at the file for the identity you are currently working with. Titanis stores tickets from the KDC in this file and reuses them for subsequent commands — you only authenticate once.
+
+```bash
+export KRB5CCNAME=~/creds/milchick.ccache
+```
+
+For alternative approaches:
+
+- Use `-Tgt <file>` to specify the TGT explicitly and `-Ticket <file>` for service tickets. If a required service ticket is not in the file, Titanis contacts the TGS using `-Tgt` and `-Kdc`. When a command requires multiple service tickets, combine them into a single file first using `Kerb select`. See [Kerberos — Managing ticket files](/user-guide/kerberos#managing-ticket-files).
+
+## Per-identity credential files
+
+Create a `.cred` file for each identity containing the credentials and ticket cache path. Source the file when you switch identities.
+
+```bash
+# milchick.cred
+export TITANIS_DEFAULT_USERNAME=milchick
+export TITANIS_DEFAULT_PASSWORD=Br3@kr00m!
+export TITANIS_DEFAULT_USERDOMAIN=LUMON.IND
+export KRB5CCNAME=~/creds/milchick.ccache
+```
+
+To switch to this identity:
+
+```bash
+source milchick.cred
+```
+
+<Warning>
+Storing passwords in plaintext credential files carries risk. Restrict file permissions appropriately (`chmod 600`) and consider using a secrets manager or AES key / certificate-based authentication instead.
+</Warning>
+
+<Tip>
+When rotating between multiple target identities during an engagement, keep each `.cred` file in a dedicated directory alongside the corresponding ticket cache and key material. This prevents cross-contamination between sessions.
+</Tip>

@@ -1,0 +1,629 @@
+---
+title: "Smb2Client"
+description: "Perform SMB2 file operations, enumerate shares and sessions, manage directories and links, and watch for changes on remote Windows file servers."
+---
+
+The `Smb2Client` tool connects to SMB2 servers and lets you list directory contents, transfer files, manage directories and symbolic links, create junctions, watch for changes, and enumerate server-level information including shares, sessions, open files, network interfaces, snapshots, and alternate data streams.
+
+## UNC path syntax
+
+All SMB commands that take a `<UncPath>` use the format:
+
+```
+\\<server>[:<port>]\<share>[\<path>]
+```
+
+Where `<port>` is an optional integer overriding the default SMB port. The `<server>` name is used within the SMB2 protocol for negotiation (for example, as the SPN host when using Kerberos). To connect through a SOCKS proxy or to a server at a different IP address, use `-HostAddress` to specify the actual network address while keeping the original `<server>` name in the UNC path.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [ls](#ls) | List the contents of a directory |
+| [get](#get) | Download a file or directory tree |
+| [put](#put) | Upload a file to the server |
+| [rm](#rm) | Delete a file |
+| [rmdir](#rmdir) | Delete a directory |
+| [mkdir](#mkdir) | Create a directory |
+| [mklink](#mklink) | Create a symbolic link |
+| [mount](#mount) | Create a mount point or junction |
+| [umount](#umount) | Unmount a mount point |
+| [touch](#touch) | Update timestamps or attributes on a file or directory |
+| [watch](#watch) | Watch a directory or subtree for changes |
+| [enumshares](#enumshares) | List shares on the server |
+| [enumsessions](#enumsessions) | List active sessions on the server |
+| [enumopenfiles](#enumopenfiles) | List files open on the server |
+| [enumnics](#enumnics) | Query the server for its network interfaces |
+| [enumsnapshots](#enumsnapshots) | List available snapshots for a file or directory |
+| [enumstreams](#enumstreams) | List data streams of a file or directory |
+
+<Note>
+For help on any subcommand, run `Smb2Client <subcommand> -h`.
+</Note>
+
+---
+
+## Common options
+
+Most subcommands share these authentication and connection options:
+
+<AccordionGroup>
+  <Accordion title="Authentication (credentials)">
+    <ParamField path="-UserName (-u)" type="UserPrincipalName">
+      User name to authenticate with (not including the domain).
+    </ParamField>
+    <ParamField path="-UserDomain (-ud)" type="string">
+      Domain of the authenticating user.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password to authenticate with.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="hexadecimal hash">
+      NTLM hash for pass-the-hash authentication.
+    </ParamField>
+    <ParamField path="-Anonymous" type="boolean">
+      Use anonymous login.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication (Kerberos)">
+    <ParamField path="-Kdc (-K)" type="host:port">
+      KDC endpoint. Required to enable Kerberos.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      Path to a TGT file (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-Tickets" type="string[]">
+      Path to service ticket files (.kirbi or ccache).
+    </ParamField>
+    <ParamField path="-TicketCache" type="string">
+      Ticket cache file.
+    </ParamField>
+    <ParamField path="-AesKey" type="HexString">
+      AES-128 or AES-256 Kerberos key.
+    </ParamField>
+    <ParamField path="-S4UserName" type="UserPrincipalName">
+      User to impersonate with S4U2self.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection">
+    <ParamField path="-HostAddress (-ha)" type="string[]">
+      Override the network address used to connect. Useful when routing through a SOCKS proxy where the server name in the UNC path cannot be resolved directly.
+    </ParamField>
+    <ParamField path="-UseTcp4Only (-4)" type="boolean">
+      Use TCP over IPv4 only.
+    </ParamField>
+    <ParamField path="-UseTcp6Only (-6)" type="boolean">
+      Use TCP over IPv6 only.
+    </ParamField>
+    <ParamField path="-EncryptSmb" type="boolean">
+      Require an encrypted SMB connection.
+    </ParamField>
+    <ParamField path="-EncryptShare" type="boolean">
+      Encrypt PDUs for the target share.
+    </ParamField>
+    <ParamField path="-RequireSigning (-signreq)" type="boolean">
+      Require signed packets.
+    </ParamField>
+    <ParamField path="-Dialects" type="Smb2Dialect[]">
+      SMB2 dialects to negotiate. Possible values: `Smb2_0_2`, `Smb2_1`, `Smb3_0`, `Smb3_0_2`, `Smb3_1_1`.
+    </ParamField>
+    <ParamField path="-FollowDfs (-F)" type="boolean">
+      Follow DFS referrals (default: true).
+    </ParamField>
+    <ParamField path="-Socks5" type="host:port">
+      SOCKS5 proxy endpoint.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## ls
+
+Lists the contents of a directory. Can also display named pipes (via the `IPC$` share) and retrieve detailed file metadata including security descriptors, link targets, and timestamps.
+
+```bash
+Smb2Client ls [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Directory to list. Accepts wildcard patterns to filter results.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Depth" type="integer">
+      Depth limit for recursive listing. `0` = no recursion (default); `-1` = unlimited.
+    </ParamField>
+    <ParamField path="-QueryBufferSize (-Q)" type="integer">
+      Buffer size for the directory listing query.
+    </ParamField>
+    <ParamField path="-TimeWarpToken" type="TimeWarpToken">
+      Snapshot version — date/time or `@GMT` token.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `RelativePath`, `Size`, `SizeOnDisk`, `FileAttributes`, `CreationTime`, `LastAccessTime`, `LastWriteTime`, `LastChangeTime`, `LinkTarget`, `SecurityDescriptorSddl`, `Owner`, `Group`, `Dacl`, `Sacl`, `MaxAccess`, `ShortName`, `FileId`, `FileIndex`, `EaSize`, `ReparseTag`.
+    </ParamField>
+    <ParamField path="-UseBackupSemantics" type="boolean">
+      Open files with backup semantics.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# List a share
+Smb2Client ls \\\\SERVER\\Share -u User -ud DOMAIN -p password
+
+# List named pipes
+Smb2Client ls \\\\SERVER\\IPC$ -u User -ud DOMAIN -p password
+
+# Connect via IP to avoid DNS (useful behind a SOCKS proxy)
+Smb2Client ls \\\\SERVER\\Share -ha 10.0.0.1 -u User -ud DOMAIN -p password
+
+# Pass the hash
+Smb2Client ls \\\\SERVER\\Share -u User -ud DOMAIN -NtlmHash 8846F7EAEE8FB117AD06BDD830B7586C
+
+# Use Kerberos
+Smb2Client ls \\\\SERVER\\Share -u User -ud DOMAIN -p password -Kdc 10.0.0.10
+```
+
+---
+
+## get
+
+Downloads a file or directory tree from an SMB share to the local filesystem. The UNC path accepts wildcard patterns (`*` and `?`).
+
+When downloading a single file, specifying `<DestinationFileName>` is optional — omit it to print the file to the console. When downloading a directory, `<DestinationFileName>` must be a local directory that either exists or will be created. The default chunk size is 32,768 bytes.
+
+```bash
+Smb2Client get [options] <UncPath> [<DestinationFileName>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Source file or directory on the server. Accepts wildcards.
+    </ParamField>
+    <ParamField path="DestinationFileName" type="string">
+      Local file or directory to write to. Omit to print the file to the console.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Depth" type="integer">
+      Directory traversal depth. `0` = current directory only (default); `-1` = unlimited.
+    </ParamField>
+    <ParamField path="-ChunkSize" type="integer">
+      Read chunk size in bytes. Must not exceed the server's `MaxReadSize`. Default: 32768.
+    </ParamField>
+    <ParamField path="-TreeOnly" type="boolean">
+      Copy directory structure without copying files.
+    </ParamField>
+    <ParamField path="-Overwrite" type="boolean">
+      Overwrite existing local files.
+    </ParamField>
+    <ParamField path="-ContinueOnError" type="boolean">
+      Continue copying after encountering an error.
+    </ParamField>
+    <ParamField path="-Unbuffered" type="boolean">
+      Read data directly from storage.
+    </ParamField>
+    <ParamField path="-Compress" type="boolean">
+      Request the server compress the data.
+    </ParamField>
+    <ParamField path="-TimeWarpToken" type="TimeWarpToken">
+      Snapshot version — date/time or `@GMT` token for reading from a shadow copy.
+    </ParamField>
+    <ParamField path="-QueryBufferSize (-Q)" type="integer">
+      Buffer size for directory listing queries during recursive operations.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Print a file to the terminal
+Smb2Client get \\\\SERVER\\Share\\File.txt -u DOMAIN\\User -p Password
+
+# Download a file
+Smb2Client get \\\\SERVER\\Share\\File.txt LocalFile.txt -u DOMAIN\\User -p Password
+
+# Download all .txt files up to depth 20
+Smb2Client get '\\\\SERVER\\Share\\*.txt' LocalTextFiles -depth 20 -u DOMAIN\\User -p Password
+
+# Copy only the directory tree structure, not files
+Smb2Client get \\\\SERVER\\Share\\Departments Departments -depth -1 -TreeOnly -u DOMAIN\\User -p Password
+```
+
+---
+
+## put
+
+Uploads a local file to the SMB share.
+
+```bash
+Smb2Client put [options] <UncPath> [<SourceFileName>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Destination path on the server.
+    </ParamField>
+    <ParamField path="SourceFileName" type="string">
+      Local file to upload. Reads from stdin if not specified.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## rm
+
+Deletes a file on the SMB share.
+
+```bash
+Smb2Client rm [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path of the file to delete.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## rmdir
+
+Deletes a directory on the SMB share.
+
+```bash
+Smb2Client rmdir [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path of the directory to delete.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## mkdir
+
+Creates a directory on the SMB share. By default, parent directories are not created. If a parent directory does not exist, the server returns `STATUS_OBJECT_PATH_NOT_FOUND`.
+
+Use `-Parents` to create the full path. With this flag, `Smb2Client mkdir` walks the path from the root, creating each level as needed. If the directory already exists with `-Parents`, no error is generated.
+
+```bash
+Smb2Client mkdir [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path of the directory to create.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Parents" type="boolean">
+      Create parent directories as needed.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## mklink
+
+Creates a symbolic link on the SMB share. By default the target path is treated as an absolute path and `\??\` is prepended automatically. Use `-Relative` for a relative link. Use `-Directory` to create a directory symlink.
+
+A symlink contains a substitution path (the actual target) and a print path (what directory listings display). By default both paths are identical. Use `-PrintPath` to set them independently.
+
+```bash
+Smb2Client mklink [options] <UncPath> <TargetPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path where the symlink will be created.
+    </ParamField>
+    <ParamField path="TargetPath" type="string" required>
+      Path the symlink points to.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Directory" type="boolean">
+      Create a directory symlink.
+    </ParamField>
+    <ParamField path="-Relative" type="boolean">
+      Treat the target path as relative.
+    </ParamField>
+    <ParamField path="-PrintPath" type="string">
+      Path to display in directory listings (defaults to `<TargetPath>`).
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+```bash
+# Create a relative file symlink
+Smb2Client mklink \\\\SERVER\\Share\\Symlink -Relative ActualFile.txt
+```
+
+---
+
+## mount
+
+Creates a mount point or junction on the SMB share.
+
+```bash
+Smb2Client mount [options] <UncPath> <TargetPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path where the mount point will be created.
+    </ParamField>
+    <ParamField path="TargetPath" type="string" required>
+      Target path for the junction.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## umount
+
+Unmounts a mount point or junction on the SMB share.
+
+```bash
+Smb2Client umount [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path of the mount point to remove.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## touch
+
+Updates the timestamps and/or file attributes of a file or directory on the SMB share. Use this command to timestomp files or create empty files.
+
+```bash
+Smb2Client touch [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path of the file or directory to update.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## watch
+
+Watches a directory or subtree for modifications and prints a notification each time a change is detected.
+
+```bash
+Smb2Client watch [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Directory to watch.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## enumshares
+
+Lists shares on the server using the RPC Server Service interface.
+
+```bash
+Smb2Client enumshares [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Level" type="ShareInfoLevel">
+      Level of detail to query. Possible values: `Level1`, `Level2`, `Level501`, `Level502`, `Level503`.
+    </ParamField>
+    <ParamField path="-BufferSize (-B)" type="integer">
+      Maximum response buffer size.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `ShareName`, `ServerName`, `ShareType`, `Remark`, `Permissions`, `MaxUses`, `CurrentUses`, `Path`, `SecurityDescriptorSddl`, `Flags`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## enumsessions
+
+Lists active sessions on the server using the RPC Server Service interface.
+
+Use `-ClientUserName` to filter by the user name (without domain). Use `-ClientComputer` to filter by computer name — `Smb2Client enumsessions` automatically prepends `\\` if you omit it.
+
+```bash
+Smb2Client enumsessions [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Level" type="SessionInfoLevel">
+      Level of detail. Possible values: `Level0`, `Level1`, `Level2`, `Level10`, `Level502`.
+    </ParamField>
+    <ParamField path="-ClientComputer" type="string">
+      Filter sessions by client computer name.
+    </ParamField>
+    <ParamField path="-ClientUserName" type="string">
+      Filter sessions by user name (without domain).
+    </ParamField>
+    <ParamField path="-BufferSize (-B)" type="integer">
+      Maximum response buffer size.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `ClientName`, `UserName`, `NumberOfOpens`, `ConnectedTime`, `IdleTime`, `UserFlags`, `ClientType`, `Transport`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## enumopenfiles
+
+Lists files currently open on the server.
+
+Use `-OpenBy` to filter by the user name (without domain). Use `-BasePath` to filter by path prefix — this must be an absolute path. For regular files it begins with a drive letter (e.g. `C:\Windows`); for named pipes it begins with `\` (e.g. `\srvsvc`). Wildcards are not supported in `-BasePath`.
+
+```bash
+Smb2Client enumopenfiles [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      RPC server to interact with.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-Level" type="OpenFileInfoLevel">
+      Level of detail. Possible values: `Level2`, `Level3`.
+    </ParamField>
+    <ParamField path="-OpenBy" type="string">
+      Filter files open by this user name (without domain).
+    </ParamField>
+    <ParamField path="-BasePath" type="string">
+      Filter files whose path starts with this prefix.
+    </ParamField>
+    <ParamField path="-BufferSize" type="integer">
+      Maximum response buffer size.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Id`, `Permissions`, `LockCount`, `Path`, `UserName`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## enumnics
+
+Queries the server for its network interfaces. Clients typically use this to discover additional channels for multi-channel SMB sessions.
+
+```bash
+Smb2Client enumnics [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      UNC path targeting the server.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `InterfaceIndex`, `Capabilities`, `LinkSpeed`, `AddressFamily`, `EndPoint`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## enumsnapshots
+
+Lists the available volume shadow copy (VSS) snapshots for a file or directory.
+
+```bash
+Smb2Client enumsnapshots [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path of the file or directory to query snapshots for.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Token`, `Timestamp`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## enumstreams
+
+Lists the alternate data streams (ADS) of a file or directory.
+
+```bash
+Smb2Client enumstreams [options] <UncPath>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="UncPath" type="UNC path" required>
+      Path of the file or directory to query streams for.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Available: `Name`, `Size`, `AllocationSize`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Related tools
+
+- [Kerb](/tools/kerb) — request Kerberos tickets for SMB authentication
+- [Lsa](/tools/lsa) — look up account SIDs and names
+- [Scm](/tools/scm) — manage services on remote Windows systems

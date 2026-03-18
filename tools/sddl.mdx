@@ -1,0 +1,231 @@
+---
+title: "Sddl"
+description: "Parse, describe, and convert Windows security descriptors in SDDL or binary hex form. Look up well-known SIDs and Active Directory GUIDs."
+---
+
+The `Sddl` tool works with Windows security descriptors represented in Security Descriptor Definition Language (SDDL) or raw binary form. Use it to understand access control entries, convert between SDDL and binary representations, resolve well-known SIDs, and look up Active Directory extended rights and property GUIDs.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [describe](#describe) | Parse and describe a security descriptor |
+| [lookupguid](#lookupguid) | Look up a GUID for an AD extended right, property, or property set |
+| [lookupwks](#lookupwks) | Look up a well-known SID |
+
+<Note>
+For help on any subcommand, run `Sddl <subcommand> -h`.
+</Note>
+
+---
+
+## describe
+
+Parses a security descriptor and prints a human-readable description of its owner, group, DACL, and SACL. Accepts input in either SDDL string form or as a hex-encoded binary security descriptor.
+
+```bash
+Sddl describe [options] <SddlOrHex>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="SddlOrHex" type="SecurityDescriptor[]" required>
+      One or more security descriptors. Each may be:
+      - An SDDL string: `O:BAG:SYD:(A;;0x1F;;;BA)`
+      - A hex-encoded binary security descriptor: `010004805800...`
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Describe options">
+    <ParamField path="-ObjectType" type="string">
+      The type of object the security descriptor belongs to. Controls how access mask bits are translated to named permissions. Defaults to `File` if not specified. Possible values:
+      - `File`
+      - `Directory`
+      - `RegistryKey`
+      - `SamServer`
+      - `SamDomain`
+      - `SamGroup`
+      - `SamAlias`
+      - `SamUserAccount`
+      - `DirectoryObject`
+      - `Scm`
+      - `Service`
+    </ParamField>
+    <ParamField path="-PrintHex" type="boolean">
+      Print the binary form of the security descriptor as a hex string. Use this to convert an SDDL input to its binary representation.
+    </ParamField>
+    <ParamField path="-PrintSddl" type="boolean">
+      Print the SDDL form of the security descriptor. Use this to convert a binary hex input to SDDL.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output options">
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+    <ParamField path="-Verbose (-V)" type="boolean">
+      Print verbose messages.
+    </ParamField>
+    <ParamField path="-Diagnostic (-vv)" type="boolean">
+      Print diagnostic messages.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Conversion
+
+`-PrintHex` and `-PrintSddl` let you convert between representations:
+
+- Pass an SDDL string and use `-PrintHex` to get the binary form.
+- Pass a hex-encoded binary and use `-PrintSddl` to get the SDDL string.
+
+### Examples
+
+<CodeGroup>
+
+```bash Describe a registry key security descriptor
+Sddl describe O:BAG:SYD:PAI(A;CI;KA;;;BA)(A;CI;KR;;;AU)(A;CI;KA;;;LS)(A;CI;KA;;;NS)(A;CI;KR;;;IU)(A;CI;KA;;;SY) -ObjectType RegistryKey
+```
+
+```bash Describe a binary security descriptor
+Sddl describe 010004805800000068000000000000001400000002004400030000000000140003000000010100000000000504000000000014000700000001010000000000050a00000000001400030000000101000000000005120000000102000000000005200000002002000001020000000000052000000020020000
+```
+
+```bash Convert SDDL to hex
+Sddl describe O:BAG:BAD:(A;;0x1F;;;AU) -PrintHex
+```
+
+```bash Convert hex to SDDL
+Sddl describe 010004805800... -PrintSddl
+```
+
+</CodeGroup>
+
+---
+
+## lookupguid
+
+Looks up one or more GUIDs and identifies them as Active Directory extended rights, properties, or property sets.
+
+```bash
+Sddl lookupguid [options] <Guid>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="Guid" type="Guid[]" required>
+      One or more GUIDs to look up, in standard `{...}` or plain hyphenated format. Separate multiple GUIDs with commas.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output fields">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Possible values: `EqualityContract`, `Guid`, `Kind`, `Name`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Example
+
+```bash
+Sddl lookupguid 5f202010-79a5-11d0-9020-00c04fc2d4cf, 4c164200-20c0-11d0-a768-00aa006e0529
+```
+
+This command identifies the two GUIDs — one is the "Logon Information" property set and the other is the "Account Restrictions" property set.
+
+---
+
+## lookupwks
+
+Looks up well-known SIDs by their string SID or well-known SID (WKS) abbreviation.
+
+```bash
+Sddl lookupwks [options] <SidOrWks>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="SidOrWks" type="SecurityIdentifier[]" required>
+      One or more SID strings or WKS abbreviations to look up. Separate multiple values with commas. Accepts:
+      - Well-known SID abbreviations: `DA`, `BA`, `SY`, `BU`
+      - String SIDs: `S-1-18-1`
+      - Domain placeholder SIDs: `S-1-5-21-&lt;domain&gt;-512`
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output fields">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Possible values: `EqualityContract`, `Wks`, `Sid`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+<CodeGroup>
+
+```bash Look up a WKS abbreviation and a string SID
+Sddl lookupwks DA, S-1-18-1
+```
+
+```bash Look up a domain-relative SID
+Sddl lookupwks S-1-5-21-<domain>-512
+```
+
+</CodeGroup>
+
+---
+
+## Common usage patterns
+
+<AccordionGroup>
+  <Accordion title="Analyzing security descriptors from Reg getsd">
+    Pipe or pass the SDDL output from `Reg getsd` directly into `Sddl describe` to get a readable breakdown:
+
+    ```bash
+    # Get the DACL as SDDL from the remote registry
+    Reg getsd -UserName admin@CORP -Password P@ss LUMON-FS1 HKCU\Software
+
+    # Then describe the SDDL output
+    Sddl describe "O:BAG:SYD:PAI(A;CI;KA;;;BA)..." -ObjectType RegistryKey
+    ```
+  </Accordion>
+
+  <Accordion title="Resolving ACE GUIDs in Active Directory">
+    Active Directory DACL entries on directory objects often use GUIDs to reference extended rights or attribute property sets. Use `lookupguid` to identify them:
+
+    ```bash
+    Sddl lookupguid 1131f6aa-9c07-11d1-f79f-00c04fc2dcd2
+    ```
+
+    This identifies the GUID as the "DS-Replication-Get-Changes" extended right (required for DCSync).
+  </Accordion>
+
+  <Accordion title="Converting between SDDL and binary">
+    Security descriptor values in the registry (`Reg getsd`) or LDAP (`nTSecurityDescriptor` attribute) may be returned as hex bytes. Use `Sddl describe` with `-PrintSddl` to convert them:
+
+    ```bash
+    Sddl describe 010004805800000068000000... -PrintSddl
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related tools
+
+<CardGroup cols={2}>
+  <Card title="Reg getsd" href="/tools/reg#getsd" icon="key">
+    Retrieve security descriptors from remote registry keys.
+  </Card>
+  <Card title="Reg setsd" href="/tools/reg#setsd" icon="pencil">
+    Apply SDDL security descriptors to registry keys.
+  </Card>
+  <Card title="Ldap" href="/tools/ldap" icon="database">
+    Query the `nTSecurityDescriptor` attribute on AD objects.
+  </Card>
+</CardGroup>

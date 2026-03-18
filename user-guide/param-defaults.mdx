@@ -1,0 +1,98 @@
+---
+title: "Parameter defaults"
+description: "Set default parameter values for Titanis commands using environment variables — per-command options, global parameter defaults, and KRB5CCNAME support."
+---
+
+Titanis lets you specify default values for common parameters through environment variables, so you don't have to repeat them on every command.
+
+## Command-specific options
+
+To set default options that are always prepended to a specific command's arguments, set an environment variable named `<COMMAND>_OPTIONS`.
+
+For example, to always run `Kerb` with `-vv`:
+
+<Tabs>
+  <Tab title="Linux">
+    ```bash
+    export KERB_OPTIONS=-vv
+    ```
+  </Tab>
+  <Tab title="Windows">
+    ```bat
+    set KERB_OPTIONS=-vv
+    ```
+  </Tab>
+</Tabs>
+
+For tools with subcommands, concatenate the command and subcommand names with an underscore:
+
+<Tabs>
+  <Tab title="Linux">
+    ```bash
+    export SMB2CLIENT_LS_OPTIONS="-UserName milchick@LUMON.IND -Kdc 10.66.0.11"
+    ```
+  </Tab>
+  <Tab title="Windows">
+    ```bat
+    set SMB2CLIENT_LS_OPTIONS=-UserName milchick@LUMON.IND -Kdc 10.66.0.11
+    ```
+  </Tab>
+</Tabs>
+
+When a tool imports options this way, it prints a confirmation message:
+
+```
+INFO: Using options from environment SMB2CLIENT_LS_OPTIONS: -vv
+```
+
+## Global parameter defaults
+
+Because parameter names are consistent across all Titanis commands, you can set a global default for any parameter using an environment variable named `TITANIS_DEFAULT_<PARAM>`.
+
+For example, to set the default log level to `diagnostic`:
+
+<Tabs>
+  <Tab title="Linux">
+    ```bash
+    export TITANIS_DEFAULT_LOGLEVEL=diagnostic
+    ```
+  </Tab>
+  <Tab title="Windows">
+    ```bat
+    set TITANIS_DEFAULT_LOGLEVEL=diagnostic
+    ```
+  </Tab>
+</Tabs>
+
+When a command uses a default imported this way, it prints:
+
+```
+INFO: Importing default for 'LogLevel': diagnostic
+```
+
+### Common global defaults
+
+| Variable | Description |
+|---|---|
+| `TITANIS_DEFAULT_LOGLEVEL` | Default log verbosity level |
+| `TITANIS_DEFAULT_LOGFORMAT` | Default log output format |
+| `TITANIS_DEFAULT_WORKSTATION` | Workstation name reported during authentication |
+| `TITANIS_DEFAULT_KDC` | Default KDC address |
+| `TITANIS_DEFAULT_REALM` | Default Kerberos realm |
+| `TITANIS_DEFAULT_USERNAME` | Default user name |
+| `TITANIS_DEFAULT_PASSWORD` | Default password |
+| `TITANIS_DEFAULT_USERDOMAIN` | Default user domain |
+
+## KRB5CCNAME support
+
+The `-TicketCache` parameter accepts a default value through either of the methods above. It also checks the standard `KRB5CCNAME` environment variable.
+
+```bash
+export KRB5CCNAME=milchick.ccache
+```
+
+With `KRB5CCNAME` set, all commands that use `-TicketCache` will read from and write to this file automatically. If the file does not exist, it is created when the first ticket is requested. Titanis detects whether to create it as a `.kirbi` or `.ccache` file based on the extension.
+
+<Note>
+See [Environment setup](/user-guide/environment) for recommendations on structuring per-identity credential files and global defaults.
+</Note>

@@ -1,0 +1,652 @@
+---
+title: "Ldap"
+description: "Perform LDAP operations against Active Directory — search, query, watch for changes, inspect schema, and manage objects."
+---
+
+The `Ldap` tool connects to an LDAP server (typically an Active Directory domain controller) and lets you search for objects by name, run raw LDAP filter queries, monitor directory changes in real time, inspect the schema, and create or modify users, computers, organizational units, and arbitrary objects.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [search](#search) | Search the directory by name using ANR |
+| [query](#query) | Run a raw LDAP filter query |
+| [watch](#watch) | Watch for changes to an object or subtree |
+| [schema](#schema) | Retrieve the directory schema |
+| [listsyntax](#listsyntax) | List all Active Directory attribute syntaxes |
+| [namedbits](#namedbits) | Show named bit flags for bitfield attributes |
+| [add](#add) | Add an arbitrary object to the directory |
+| [addou](#addou) | Add a new organizational unit |
+| [adduser](#adduser) | Add a new user account |
+| [addcomputer](#addcomputer) | Add a computer account |
+| [mod](#mod) | Modify attributes on an existing object |
+| [moduser](#moduser) | Modify a user account (including password operations) |
+| [whoami](#whoami) | Display the identity of the authenticated user |
+
+<Note>
+For help on any subcommand, run `Ldap <subcommand> -h`.
+</Note>
+
+---
+
+## search
+
+Searches the directory by name using Active Directory's Ambiguous Name Resolution (ANR) feature. ANR matches any designated name-like field (display name, SAM account name, UPN, etc.) that begins with the search string.
+
+```bash
+Ldap search [options] -SearchName <String[]> <ServerName> <SearchName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server to connect to.
+    </ParamField>
+    <ParamField path="SearchName" type="string[]" required>
+      Name to search for. Prepend `=` to require an exact match instead of a prefix match.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Search options">
+    <ParamField path="-SearchBase" type="LdapDistinguishedName[]">
+      DN of the search root. Defaults to the domain root. Accepts special names: `DomainRoot`, `ForestRoot`, `ConfigRoot`, `SchemaRoot`, `RootDse`.
+    </ParamField>
+    <ParamField path="-Scope" type="string">
+      Scope of the search. Possible values: `BaseObject`, `Base`, `SingleLevel`, `WholeSubtree`, `Subtree`.
+    </ParamField>
+    <ParamField path="-PageSize" type="number" default="100">
+      Number of results to fetch per page.
+    </ParamField>
+    <ParamField path="-RecordLimit (-R)" type="number">
+      Maximum total number of records to return.
+    </ParamField>
+    <ParamField path="-IncludeDeleted" type="boolean">
+      Include soft-deleted (tombstoned) objects.
+    </ParamField>
+    <ParamField path="-IncludeRecycled" type="boolean">
+      Include deleted and recycled objects.
+    </ParamField>
+    <ParamField path="-FollowReferrals (-F)" type="boolean">
+      Follow LDAP referrals to other servers.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Authentication">
+    <ParamField path="-UserName (-u)" type="UserPrincipalName">
+      User name to authenticate with (not including the domain).
+    </ParamField>
+    <ParamField path="-UserDomain (-ud)" type="string">
+      Domain of the authenticating user.
+    </ParamField>
+    <ParamField path="-Password (-p)" type="string">
+      Password for authentication.
+    </ParamField>
+    <ParamField path="-NtlmHash" type="string">
+      NTLM hash for pass-the-hash authentication.
+    </ParamField>
+    <ParamField path="-AesKey" type="string">
+      AES key (128 or 256-bit) for Kerberos authentication.
+    </ParamField>
+    <ParamField path="-Tgt" type="string">
+      Path to a ticket-granting ticket file (`.kirbi` or ccache).
+    </ParamField>
+    <ParamField path="-Kdc (-K)" type="string">
+      KDC endpoint (`host:port`).
+    </ParamField>
+    <ParamField path="-Anonymous" type="boolean">
+      Use anonymous (unauthenticated) login.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Connection &amp; output">
+    <ParamField path="-Gc (-G)" type="boolean">
+      Connect to the Global Catalog server.
+    </ParamField>
+    <ParamField path="-Ssl" type="boolean">
+      Use SSL/TLS for the connection.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format. Possible values: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+    <ParamField path="-Socks5" type="string">
+      SOCKS5 proxy endpoint (`host:port`).
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+<CodeGroup>
+
+```bash Search by prefix
+Ldap search LUMON-DC1 admin
+```
+
+```bash Exact match
+Ldap search LUMON-DC1 =milchick
+```
+
+</CodeGroup>
+
+<Tip>
+Prefix `=` to the search term to require an exact match rather than a prefix match. Wildcards are not supported and are treated literally.
+</Tip>
+
+---
+
+## query
+
+Issues a raw LDAP filter query to the server. Use `-OutputFields` to specify which attributes to return; by default, only the DN of matching entries is printed.
+
+```bash
+Ldap query [options] <ServerName> [<Filter>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+    <ParamField path="Filter" type="string">
+      LDAP filter string. Quote the filter to avoid shell escaping issues.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Query options">
+    <ParamField path="-Filter" type="string">
+      LDAP filter. Supported operators: `=`, `~=`, `<=`, `>=`, `&=` (bit AND), `|=` (bit OR), `*=` (transitive match). Negate with `!`.
+    </ParamField>
+    <ParamField path="-SearchBase" type="LdapDistinguishedName[]">
+      DN of search root. Accepts special names: `DomainRoot`, `ForestRoot`, `ConfigRoot`, `SchemaRoot`, `RootDse`.
+    </ParamField>
+    <ParamField path="-Scope" type="string">
+      Search scope: `BaseObject`, `Base`, `SingleLevel`, `WholeSubtree`, `Subtree`.
+    </ParamField>
+    <ParamField path="-PageSize" type="number" default="100">
+      Results per page.
+    </ParamField>
+    <ParamField path="-RecordLimit (-R)" type="number">
+      Maximum total records to return.
+    </ParamField>
+    <ParamField path="-IncludeDeleted" type="boolean">
+      Include tombstoned objects.
+    </ParamField>
+    <ParamField path="-IncludeRecycled" type="boolean">
+      Include recycled objects.
+    </ParamField>
+    <ParamField path="-DirSync" type="string">
+      Return only changes since the given DirSync cookie (hex-encoded).
+    </ParamField>
+    <ParamField path="-FollowReferrals" type="boolean">
+      Follow LDAP referrals.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### LDAP filter syntax
+
+Filters take the form `(<attr> <op> <value>)`. Combine multiple filters with `&` (all must match) or `|` (at least one must match):
+
+```
+(&(objectClass=user)(userAccountControl|=TrustedForDelegation))
+```
+
+Active Directory-specific extensions (`&=`, `|=`, `*=`) are supported.
+
+### Examples
+
+<CodeGroup>
+
+```bash Find user by SAM account name
+Ldap query LUMON-DC1 '(samAccountName=milchick)' -OutputFields distinguishedName, objectSid
+```
+
+```bash Find accounts with SPNs
+Ldap query LUMON-DC1 '(servicePrincipalName=*)' -OutputFields distinguishedName, objectSid, servicePrincipalName
+```
+
+```bash Query rootDSE anonymously
+Ldap query LUMON-DC1 -OutputFields * -OutputStyle List
+```
+
+```bash Accounts trusted for unconstrained delegation
+Ldap query LUMON-DC1 -OutputFields * "(userAccountControl|=TrustedForDelegation)"
+```
+
+```bash Accounts with constrained delegation targets
+Ldap query LUMON-DC1 -OutputFields * "(msDS-AllowedToDelegateTo=*)"
+```
+
+</CodeGroup>
+
+---
+
+## watch
+
+Watches for changes to an object or subtree using the LDAP DirSync control. The command runs continuously and prints updates as they arrive.
+
+```bash
+Ldap watch [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Watch options">
+    <ParamField path="-SearchBase" type="LdapDistinguishedName[]">
+      DN of the subtree to watch. Defaults to the domain root.
+    </ParamField>
+    <ParamField path="-Scope" type="string">
+      Search scope: `BaseObject`, `Base`, `SingleLevel`, `WholeSubtree`, `Subtree`.
+    </ParamField>
+    <ParamField path="-DirSync" type="string">
+      Resume watching from a previously saved DirSync cookie.
+    </ParamField>
+    <ParamField path="-OutputFields" type="string[]">
+      Specific attributes to include in the output.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## schema
+
+Retrieves schema information from the directory, including attribute definitions and object classes.
+
+```bash
+Ldap schema [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output options">
+    <ParamField path="-OutputFields" type="string[]">
+      Schema fields to include in the output.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## listsyntax
+
+Lists all Active Directory attribute syntaxes. A syntax describes the format of an attribute's data and how raw bytes are decoded into logical values.
+
+```bash
+Ldap listsyntax [options]
+```
+
+<AccordionGroup>
+  <Accordion title="Output options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Possible values: `EqualityContract`, `syntaxKey`, `memberName`.
+    </ParamField>
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## namedbits
+
+Prints named bit flags for bitfield attributes. Use this to discover which bit names to pass when setting attributes like `userAccountControl` or `msDS-SupportedEncryptionTypes`.
+
+```bash
+Ldap namedbits [options] [<Attribute>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="Attribute" type="string[]">
+      One or more attribute names to print. Omit to print all known bitfield attributes.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Possible values: `EqualityContract`, `Attribute`, `Name`, `Value`, `HexValue`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## add
+
+Adds an arbitrary object of a specified object class to the directory.
+
+```bash
+Ldap add [options] -ObjectClass <String> -ObjectName <String[]> <ServerName> <ObjectName> <ObjectClass>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+    <ParamField path="-ObjectName" type="string[]" required>
+      Name or distinguished name of the object to create.
+    </ParamField>
+    <ParamField path="-ObjectClass" type="string" required>
+      LDAP object class of the new object (e.g., `user`, `group`, `computer`).
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Object options">
+    <ParamField path="-Attributes" type="AttributeChangeSpec[]">
+      Additional attributes to set at creation time, as `name=value` pairs.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## addou
+
+Adds a new organizational unit to the directory.
+
+```bash
+Ldap addou [options] -ObjectName <String[]> <ServerName> <ObjectName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+    <ParamField path="-ObjectName" type="string[]" required>
+      Name or DN of the OU to create.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="OU options">
+    <ParamField path="-Attributes" type="AttributeChangeSpec[]">
+      Additional attributes to set, as `name=value` pairs.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## adduser
+
+Adds a new user account to the directory.
+
+```bash
+Ldap adduser [options] -ObjectName <String[]> <ServerName> <ObjectName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+    <ParamField path="-ObjectName" type="string[]" required>
+      Name or DN of the user to create.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="User options">
+    <ParamField path="-NewPassword" type="string">
+      Initial password for the new account.
+    </ParamField>
+    <ParamField path="-LogonName" type="string">
+      SAM account name (pre-Windows 2000 logon name).
+    </ParamField>
+    <ParamField path="-GivenName" type="string">
+      First name.
+    </ParamField>
+    <ParamField path="-Surname" type="string">
+      Last name.
+    </ParamField>
+    <ParamField path="-DisplayName" type="string">
+      Display name shown in directory listings.
+    </ParamField>
+    <ParamField path="-UserCerts" type="string[]">
+      Paths to certificate files to associate with the user.
+    </ParamField>
+    <ParamField path="-MemberOf (-M)" type="string[]">
+      Groups to add the user to at creation time.
+    </ParamField>
+    <ParamField path="-Attributes" type="AttributeChangeSpec[]">
+      Additional attributes as `name=value` pairs.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## addcomputer
+
+Adds a computer account to the directory.
+
+```bash
+Ldap addcomputer [options] -ObjectName <String[]> <ServerName> <ObjectName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+    <ParamField path="-ObjectName" type="string[]" required>
+      Name or DN of the computer account to create.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Computer options">
+    <ParamField path="-NewPassword" type="string">
+      Password for the computer account.
+    </ParamField>
+    <ParamField path="-LogonName" type="string">
+      SAM account name for the computer.
+    </ParamField>
+    <ParamField path="-DisplayName" type="string">
+      Display name for the account.
+    </ParamField>
+    <ParamField path="-Os" type="string">
+      Name of the installed operating system.
+    </ParamField>
+    <ParamField path="-OsVersion" type="string">
+      Version of the installed operating system.
+    </ParamField>
+    <ParamField path="-UserCerts" type="string[]">
+      Paths to certificate files to associate with the account.
+    </ParamField>
+    <ParamField path="-MemberOf (-M)" type="string[]">
+      Groups to add the computer to.
+    </ParamField>
+    <ParamField path="-Attributes" type="AttributeChangeSpec[]">
+      Additional attributes as `name=value` pairs.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## mod
+
+Modifies one or more attributes on an existing directory object.
+
+```bash
+Ldap mod [options] -ObjectName <String[]> <ServerName> <ObjectName> [<Changes>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+    <ParamField path="-ObjectName" type="string[]" required>
+      Name or DN of the object to modify.
+    </ParamField>
+    <ParamField path="-Changes" type="AttributeChangeSpec[]">
+      Attribute changes as `name?=value` pairs.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Change syntax
+
+Specify each change as `name?=value` where `?=` is one of:
+
+| Operator | Effect |
+|---|---|
+| `+=` | Add a value |
+| `-=` | Remove a value |
+| `=` | Replace all values |
+
+For numeric attributes with named bit flags, you can use comma-separated bit names:
+
+```bash
+msDS-SupportedEncryptionTypes=Aes128CtsHmacSha1_96,Aes256CtsHmacSha1_96
+```
+
+Use `namedbits` to list supported attributes and their bit names.
+
+### Examples
+
+<CodeGroup>
+
+```bash Add a certificate to an account
+Ldap mod LUMON-DC1 -UserName milchick@LUMON -Password Br3@kr00m! ALLENTOWN$ userCertificate:file+=allentown.cer
+```
+
+```bash Configure resource-based constrained delegation
+Ldap mod LUMON-DC1 -UserName milchick@LUMON -Password Br3@kr00m! Stealth$ msDS-AllowedToDelegateTo+=HOST/ALLENTOWN, msDS-AllowedToDelegateTo+=cifs/ALLENTOWN
+```
+
+</CodeGroup>
+
+---
+
+## moduser
+
+Modifies a user account, including password change and reset operations.
+
+```bash
+Ldap moduser [options] -ObjectName <String[]> <ServerName> <ObjectName> [<Changes>]
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+    <ParamField path="-ObjectName" type="string[]" required>
+      Name or DN of the user to modify.
+    </ParamField>
+    <ParamField path="-Changes" type="AttributeChangeSpec[]">
+      Attribute changes using the same `name?=value` syntax as `mod`.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Password options">
+    <ParamField path="-OldPassword" type="string">
+      Current password (required for user-initiated password change).
+    </ParamField>
+    <ParamField path="-NewPassword" type="string">
+      New password (for password change or administrative reset).
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## whoami
+
+Returns the identity of the currently authenticated user as seen by the LDAP server.
+
+```bash
+Ldap whoami [options] <ServerName>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="ServerName" type="string" required>
+      Name or address of the LDAP server.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output options">
+    <ParamField path="-OutputFields" type="string[]">
+      Fields to display. Possible values: `SaslString`, `PrincipalName`, `Kind`.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Common options
+
+All `Ldap` subcommands that connect to a server accept these shared options.
+
+<AccordionGroup>
+  <Accordion title="SSL / TLS">
+    | Option | Description |
+    |---|---|
+    | `-Ssl` | Use SSL for the connection |
+    | `-SslCert` | Path to a PEM or PFX certificate file |
+    | `-SslKeyFile` | Path to a PFX file for SSL client authentication |
+    | `-SslKeyPassword` | Password for `-SslCert` or `-SslKeyFile` |
+  </Accordion>
+
+  <Accordion title="Kerberos authentication">
+    | Option | Description |
+    |---|---|
+    | `-AesKey` | AES-128 or AES-256 key |
+    | `-DesKey` | DES key |
+    | `-Tgt` | TGT file path (`.kirbi` or ccache) |
+    | `-Tickets` | Service ticket file paths |
+    | `-TicketCache` | Ticket cache file path |
+    | `-Kdc (-K)` | KDC endpoint (`host:port`) |
+    | `-S4UserName` | User to impersonate via S4U |
+    | `-UserCert` | Certificate file for PKINIT |
+    | `-UserKey` | Key file for PKINIT |
+  </Accordion>
+
+  <Accordion title="Connection">
+    | Option | Description |
+    |---|---|
+    | `-HostAddress (-ha)` | Override network address(es) of the server |
+    | `-UseTcp6Only (-6)` | Force IPv6 |
+    | `-UseTcp4Only (-4)` | Force IPv4 |
+    | `-Socks5` | SOCKS5 proxy endpoint |
+    | `-AuthProxy` | Authentication proxy endpoint |
+  </Accordion>
+
+  <Accordion title="Output verbosity">
+    | Option | Description |
+    |---|---|
+    | `-Verbose (-V)` | Print verbose messages |
+    | `-Diagnostic (-vv)` | Print diagnostic messages |
+    | `-LogLevel` | Minimum log level: `Debug`, `Verbose`, `Info`, `Warning`, `Error`, `Critical` |
+    | `-ConsoleLogFormat (-LogFormat)` | Log format: `Text`, `TextWithTimestamp`, `Json` |
+  </Accordion>
+</AccordionGroup>
+
+## Related tools
+
+<CardGroup cols={2}>
+  <Card title="Sddl" href="/tools/sddl" icon="shield">
+    Parse and describe security descriptors that appear in LDAP attributes.
+  </Card>
+  <Card title="Cert" href="/tools/cert" icon="certificate">
+    Create self-signed certificates to associate with directory accounts.
+  </Card>
+</CardGroup>

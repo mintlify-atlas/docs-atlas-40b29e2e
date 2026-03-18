@@ -1,0 +1,137 @@
+---
+title: "Cert"
+description: "Work with X.509 certificates — create self-signed certificates for use with LDAP authentication, PKINIT, or testing."
+---
+
+The `Cert` tool provides certificate utilities for Titanis workflows. Currently it supports generating self-signed certificates that you can use for SSL authentication, Kerberos PKINIT, or associating with Active Directory accounts.
+
+## Subcommands
+
+| Command | Description |
+|---|---|
+| [selfcert](#selfcert) | Create a self-signed X.509 certificate |
+
+<Note>
+For help on any subcommand, run `Cert <subcommand> -h`.
+</Note>
+
+---
+
+## selfcert
+
+Creates a self-signed X.509 certificate and writes it to a PFX file. You can optionally export the public certificate separately.
+
+```bash
+Cert selfcert [options] -PfxFileName <String> <Subject>
+```
+
+<AccordionGroup>
+  <Accordion title="Parameters">
+    <ParamField path="Subject" type="string" required>
+      Subject name as an X.500 distinguished name string, e.g. `CN=ALLENTOWN,DC=LUMON,DC=corp`.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Certificate options">
+    <ParamField path="-PfxFileName (-P)" type="string" required>
+      Path of the output `.pfx` file to write (contains both the private key and the certificate).
+    </ParamField>
+    <ParamField path="-CertFileName" type="string">
+      Path of an additional public certificate file to write (`.pem` or `.cer` format).
+    </ParamField>
+    <ParamField path="-KeySizeBits (-K)" type="number" default="2048">
+      RSA key size in bits.
+    </ParamField>
+    <ParamField path="-HashAlgorithm" type="string">
+      Signature hash algorithm. Possible values: `Md5`, `Sha1`, `Sha256`, `Sha384`, `Sha512`, `Sha3_256`, `Sha3_384`, `Sha3_512`.
+    </ParamField>
+    <ParamField path="-SubjectAltName" type="string">
+      Subject Alternative Name (SAN) extension value.
+    </ParamField>
+    <ParamField path="-TemplateFile (-T)" type="string">
+      Path to an existing certificate file to use as a template. The new certificate copies properties from this template.
+    </ParamField>
+  </Accordion>
+
+  <Accordion title="Output options">
+    <ParamField path="-ConsoleOutputStyle (-OutputStyle)" type="string">
+      Output format. Possible values: `Freeform`, `Raw`, `Table`, `List`, `Csv`, `Tsv`, `Json`.
+    </ParamField>
+    <ParamField path="-Verbose (-V)" type="boolean">
+      Print verbose messages.
+    </ParamField>
+    <ParamField path="-Diagnostic (-vv)" type="boolean">
+      Print diagnostic messages.
+    </ParamField>
+  </Accordion>
+</AccordionGroup>
+
+### Examples
+
+<Steps>
+  <Step title="Create a basic self-signed certificate">
+    ```bash
+    Cert selfcert -PfxFileName allentown.pfx "CN=ALLENTOWN"
+    ```
+    Creates a 2048-bit RSA certificate with a SHA-256 signature and writes it to `allentown.pfx`.
+  </Step>
+
+  <Step title="Create a certificate and export the public key">
+    ```bash
+    Cert selfcert -PfxFileName allentown.pfx -CertFileName allentown.cer "CN=ALLENTOWN,DC=LUMON,DC=corp"
+    ```
+    Writes the full certificate + key to `allentown.pfx` and the public certificate alone to `allentown.cer`.
+  </Step>
+
+  <Step title="Create a 4096-bit certificate with SHA-512">
+    ```bash
+    Cert selfcert -PfxFileName allentown.pfx -KeySizeBits 4096 -HashAlgorithm Sha512 "CN=ALLENTOWN"
+    ```
+  </Step>
+
+  <Step title="Associate the certificate with an AD account">
+    After creating the certificate, use `Ldap mod` to associate the public certificate with an account:
+    ```bash
+    Ldap mod LUMON-DC1 -UserName milchick@LUMON -Password Br3@kr00m! ALLENTOWN$ userCertificate:file+=allentown.cer
+    ```
+  </Step>
+</Steps>
+
+## Common usage patterns
+
+<AccordionGroup>
+  <Accordion title="PKINIT authentication">
+    Generate a certificate and associate it with an Active Directory account, then use it for Kerberos PKINIT authentication in other Titanis tools via `-UserCert` and `-UserKey`:
+
+    ```bash
+    # 1. Create the certificate
+    Cert selfcert -PfxFileName user.pfx -CertFileName user.cer "CN=targetuser"
+
+    # 2. Associate with AD account (requires LDAP write access)
+    Ldap mod DC1 -UserName admin@CORP -Password P@ssw0rd targetuser userCertificate:file+=user.cer
+
+    # 3. Use for Kerberos authentication in subsequent commands
+    Ldap query DC1 -UserCert user.pfx '(samAccountName=*)'
+    ```
+  </Accordion>
+
+  <Accordion title="SSL client authentication">
+    Use the generated PFX as a client certificate for LDAP over SSL:
+
+    ```bash
+    Cert selfcert -PfxFileName client.pfx "CN=client"
+    Ldap query DC1 -Ssl -SslKeyFile client.pfx '(objectClass=*)'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related tools
+
+<CardGroup cols={2}>
+  <Card title="Ldap" href="/tools/ldap" icon="database">
+    Associate the generated certificate with an Active Directory account using `Ldap mod`.
+  </Card>
+  <Card title="Ldap adduser" href="/tools/ldap#adduser" icon="user">
+    Create an account with an associated certificate at provisioning time.
+  </Card>
+</CardGroup>
