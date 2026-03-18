@@ -1,0 +1,112 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Titanis",
+  "projectDescription": "A cross-platform C# library and CLI toolkit implementing Windows network protocols including SMB2, MSRPC, LDAP, NTLM, and Kerberos for security research, penetration testing, and system administration.",
+  "theme": "aspen",
+  "primaryColor": "#B91C1C",
+  "lightColor": "#FEE2E2",
+  "darkColor": "#7F1D1D",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "User Guide",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "getting-started/building",
+              "getting-started/installation"
+            ]
+          },
+          {
+            "group": "Using the Tools",
+            "pages": [
+              "user-guide/syntax",
+              "user-guide/authentication",
+              "user-guide/kerberos",
+              "user-guide/output",
+              "user-guide/param-defaults",
+              "user-guide/environment"
+            ]
+          },
+          {
+            "group": "Tool Reference",
+            "pages": [
+              "tools/index",
+              "tools/kerb",
+              "tools/smb2client",
+              "tools/wmi",
+              "tools/lsa",
+              "tools/sam",
+              "tools/scm",
+              "tools/epm",
+              "tools/ldap",
+              "tools/reg",
+              "tools/cert",
+              "tools/credcoerce",
+              "tools/dcom",
+              "tools/sddl"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Developer Guide",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "dev-guide/index",
+              "dev-guide/versioning"
+            ]
+          },
+          {
+            "group": "Using the Libraries",
+            "pages": [
+              "dev-guide/using-smb",
+              "dev-guide/services",
+              "dev-guide/source-generator"
+            ]
+          },
+          {
+            "group": "Extending Titanis",
+            "pages": [
+              "dev-guide/command-line-utility",
+              "dev-guide/samples"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "SMB2/3 client with signing, encryption, DFS, and filesystem control code support",
+    "MSRPC over TCP/IP with DCOM, WMI, LSA, SAM, SCM, EFS, and Remote Registry interfaces",
+    "Kerberos authentication with PKINIT, S4U2self/S4U2proxy, ticket management, and ccache/kirbi support",
+    "NTLM and SPNEGO authentication with pass-the-hash support",
+    "LDAP client with SSL, channel binding, and Active Directory extensions",
+    "Cross-platform (Windows and Linux) built on .NET 8",
+    "Integrated SOCKS5 proxy support",
+    "Extensible CLI framework with uniform authentication parameters across all tools"
+  ],
+  "publicApiSurface": [
+    "Titanis.Smb2 — SMB2 client library",
+    "Titanis.Security.Kerberos — Kerberos authentication library",
+    "Titanis.Security.Ntlm — NTLM authentication library",
+    "Titanis.Security.Spnego — SPNEGO negotiation library",
+    "Kerb CLI — Kerberos ticket management and AS/TGS requests",
+    "Smb2Client CLI — SMB2 file system operations",
+    "Wmi CLI — WMI query and execution",
+    "Lsa CLI — LSA policy and privilege management",
+    "Sam CLI — Security Accounts Manager enumeration",
+    "Scm CLI — Service Control Manager operations",
+    "Epm CLI — RPC endpoint mapper",
+    "Ldap CLI — LDAP queries against Active Directory",
+    "Reg CLI — Remote Registry with backup semantics and SAM dump",
+    "Cert CLI — Certificate utilities",
+    "CredCoerce CLI — RPC-based credential coercion",
+    "Dcom CLI — DCOM remote automation object activation",
+    "Sddl CLI — SDDL descriptor parsing and description"
+  ]
+}
