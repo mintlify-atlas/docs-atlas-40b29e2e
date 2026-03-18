@@ -69,6 +69,14 @@ partial struct PduHeader
 }
 ```
 
+## Field alignment
+
+The source generator does not enforce any alignment requirements by default. To enforce alignment padding for an individual field, apply `[PduAlignment]` to that field.
+
+<Note>
+The `[PduAlignment]` and `[PduConditional]` attributes are always applied by the generator before any custom read/write methods are invoked.
+</Note>
+
 ## Setting byte order
 
 Use `[PduByteOrder]` to specify endianness. You can apply it at the assembly level, to a type, or to an individual field. More specific scopes override less specific ones.
